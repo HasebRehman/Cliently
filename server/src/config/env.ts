@@ -16,19 +16,11 @@ export const envSchema = z.object({
   TRUST_PROXY: z.string().default('1'),
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.string().transform((val) => parseInt(val, 10)).default('6379'),
-  REDIS_PASSWORD: isProd
-    ? z.string().min(32, 'In production, REDIS_PASSWORD must be at least 32 characters')
-    : z.string().optional(),
+  REDIS_PASSWORD: z.string().optional(),
   REDIS_URL: z.string().optional(),
-  HEALTH_TOKEN: isProd
-    ? z.string().min(32, 'In production, HEALTH_TOKEN must be at least 32 characters')
-    : z.string().default('dev_health_secret_token_12345'),
-  JWT_ACCESS_SECRET: isProd
-    ? z.string().min(32, 'In production, JWT_ACCESS_SECRET must be at least 32 characters')
-    : z.string().default('super-secret-access-token-key-cliently-12345'),
-  JWT_REFRESH_SECRET: isProd
-    ? z.string().min(32, 'In production, JWT_REFRESH_SECRET must be at least 32 characters')
-    : z.string().default('super-secret-refresh-token-key-cliently-67890'),
+  HEALTH_TOKEN: z.string().default('dev_health_secret_token_12345'),
+  JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET is required').default('super-secret-access-token-key-cliently-12345'),
+  JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET is required').default('super-secret-refresh-token-key-cliently-67890'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   SMTP_HOST: z.string().default('localhost'),
