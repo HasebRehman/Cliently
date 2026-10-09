@@ -15,8 +15,12 @@ export function resolveApiUrl(endpoint: string): string {
     return endpoint;
   }
 
-  if (RAW_API_URL && RAW_API_URL.trim()) {
-    const base = RAW_API_URL.trim().replace(/\/+$/, '');
+  let base = RAW_API_URL ? RAW_API_URL.trim().replace(/\/+$/, '') : '';
+  if (!base && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    base = 'https://cliently-backend.onrender.com/api/v1';
+  }
+
+  if (base) {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
     if (base.endsWith('/api/v1') && cleanEndpoint.startsWith('/api/v1')) {

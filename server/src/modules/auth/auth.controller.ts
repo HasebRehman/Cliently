@@ -70,7 +70,7 @@ export class AuthController {
       });
     } catch (error) {
       // Clear cookie on failure
-      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/v1/auth' });
+      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' });
       next(error);
     }
   }
@@ -80,7 +80,7 @@ export class AuthController {
       const rawRefreshToken = req.cookies?.[REFRESH_COOKIE_NAME] || req.body.refreshToken;
       const result = await authService.logout(rawRefreshToken);
 
-      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/v1/auth' });
+      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' });
       res.status(200).json(result);
     } catch (error) {
       next(error);
@@ -90,7 +90,7 @@ export class AuthController {
   async logoutAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await authService.logoutAll(req.user!.userId);
-      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/v1/auth' });
+      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' });
       res.status(200).json(result);
     } catch (error) {
       next(error);

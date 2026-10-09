@@ -43,9 +43,10 @@ export function createApp(): Express {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id', 'x-health-token'],
+      optionsSuccessStatus: 200,
     })
   );
+  app.options('*', cors());
 
   // Rate Limiting (Skip in test mode)
   if (env.NODE_ENV !== 'test') {

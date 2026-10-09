@@ -66,9 +66,13 @@ export function useChatSocket(options: UseChatSocketOptions) {
       const rawWsUrl = ((import.meta as any).env?.VITE_WS_URL as string) || '';
       let baseWsUrl = rawWsUrl.trim();
       if (!baseWsUrl) {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.hostname;
-        baseWsUrl = `${protocol}//${host}:5000/ws/chat`;
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          baseWsUrl = 'wss://cliently-backend.onrender.com/ws/chat';
+        } else {
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const host = window.location.hostname;
+          baseWsUrl = `${protocol}//${host}:5000/ws/chat`;
+        }
       }
 
       const separator = baseWsUrl.includes('?') ? '&' : '?';
