@@ -75,6 +75,17 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(cookieParser());
 
+  // Root welcome endpoint
+  app.get('/', (_req, res) => {
+    res.json({
+      success: true,
+      name: 'Cliently API Server',
+      status: 'healthy',
+      version: '1.0.0',
+      message: 'Welcome to Cliently API. API endpoints are available at /api/v1',
+    });
+  });
+
   // Direct Public & Internal Health check endpoints
   app.get('/health', handlePublicHealthCheck);
   app.get('/health/detail', handleDetailedHealthCheck);

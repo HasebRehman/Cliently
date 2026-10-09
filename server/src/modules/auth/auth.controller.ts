@@ -4,12 +4,13 @@ import { env } from '../../config/env.js';
 import { registerRealtimeClient } from '../../lib/realtime.js';
 
 const REFRESH_COOKIE_NAME = 'cliently_refresh_token';
+const isProd = env.NODE_ENV === 'production';
 
 const cookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
-  path: '/api/v1/auth',
+  secure: isProd,
+  sameSite: isProd ? ('none' as const) : ('lax' as const),
+  path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
