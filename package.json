@@ -1,0 +1,37 @@
+{
+  "name": "cliently-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production Multi-Tenant Client Portal and Invoicing SaaS",
+  "workspaces": [
+    "server",
+    "client",
+    "worker"
+  ],
+  "scripts": {
+    "dev:server": "npm --workspace=server run dev",
+    "dev:client": "npm --workspace=client run dev",
+    "dev:worker": "npm --workspace=worker run dev",
+    "build": "npm --workspaces run build",
+    "test": "npm --workspace=server run test && npm --workspace=client run test",
+    "prisma:generate": "npm --workspace=server run prisma:generate",
+    "prisma:migrate": "npm --workspace=server run prisma:migrate",
+    "prisma:migrate:deploy": "npm --workspace=server run prisma:migrate:deploy",
+    "prisma:seed": "npm --workspace=server run prisma:seed",
+    "prisma:studio": "npm --workspace=server run prisma:studio",
+    "docker:dev:up": "docker compose -f docker-compose.dev.yml up -d --build",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:dev:logs": "docker compose -f docker-compose.dev.yml logs -f"
+  },
+  "keywords": [
+    "saas",
+    "invoicing",
+    "client-portal",
+    "multi-tenant",
+    "prisma",
+    "express",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT"
+}

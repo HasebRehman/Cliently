@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand-primary: #070F2B;
+    --color-brand-secondary: #1B1A55;
+    --color-brand-accent: #535C91;
+    --color-brand-accent-light: #9290C3;
+  }
+
+  html, body {
+    font-family: 'Noto Sans', sans-serif;
+    color: #0f172a;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+    width: 0px;
+    height: 0px;
+  }
+
+  /* Universally hide scrollbars on all scrollable containers while keeping full scrollability */
+  *, *::before, *::after {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0px;
+    height: 0px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    width: 0px;
+    height: 0px;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Smooth elegant page transition animation */
+  .page-transition {
+    animation: pageGlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Smooth elegant tab transition animation */
+  .tab-transition {
+    animation: tabGlide 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+@keyframes pageGlide {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tabGlide {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

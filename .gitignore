@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing & Coverage
+coverage/
+*.lcov
+
+# Production builds
+dist/
+build/
+.next/
+out/
+
+# Environment variables
+.env
+.env*
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+*.env.*
+!.env.example
+!**/.env.example
+
+# File uploads & temporary storage
+uploads/
+**/uploads/
+!**/uploads/.gitkeep
+tmp/
+temp/
+
+# Production builds & artifacts
+dist/
+**/dist/
+build/
+**/build/
+.next/
+out/
+.turbo/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Database & Docker volumes
+postgres_data/
+redis_data/

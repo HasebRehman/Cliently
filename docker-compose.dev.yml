@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: cliently-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: cliently_dev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cliently_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: cliently-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_dev_secret}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_dev_secret}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: cliently-mailhog
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025" # SMTP server
+      - "127.0.0.1:8025:8025" # Web UI
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: cliently-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/cliently_dev?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_dev_secret}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_secret}@redis:6379
+      HEALTH_TOKEN: ${HEALTH_TOKEN:-dev_health_secret_token_12345}
+      CLIENT_URL: http://localhost:5173
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-super-secret-access-token-key-cliently-12345}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-super-secret-refresh-token-key-cliently-67890}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      EMAIL_FROM: no-reply@cliently.local
+      JAAS_APP_ID: ${JAAS_APP_ID:-}
+      JAAS_KEY_ID: ${JAAS_KEY_ID:-}
+      JAAS_PRIVATE_KEY: ${JAAS_PRIVATE_KEY:-}
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+volumes:
+  postgres_data:
+  redis_data:

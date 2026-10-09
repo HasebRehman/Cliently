@@ -1,0 +1,26 @@
+FROM node:20.18-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache openssl libc6-compat python3 make g++
+
+# Copy package manifests
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install dependencies
+RUN npm install
+
+# Copy source code and ensure permissions for non-root node user
+COPY . .
+RUN chown -R node:node /app
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Switch to non-root user
+USER node
+
+EXPOSE 5000
+
+CMD ["npm", "run", "dev"]
