@@ -63,10 +63,16 @@ export function useChatSocket(options: UseChatSocketOptions) {
         return;
       }
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname;
-      // In dev, backend runs on port 5000
-      const wsUrl = `${protocol}//${host}:5000/ws/chat?token=${encodeURIComponent(token)}&orgId=${encodeURIComponent(activeOrgId)}`;
+      const rawWsUrl = ((import.meta as any).env?.VITE_WS_URL as string) || '';
+      let baseWsUrl = rawWsUrl.trim();
+      if (!baseWsUrl) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.hostname;
+        baseWsUrl = `${protocol}//${host}:5000/ws/chat`;
+      }
+
+      const separator = baseWsUrl.includes('?') ? '&' : '?';
+      const wsUrl = `${baseWsUrl}${separator}token=${encodeURIComponent(token)}&orgId=${encodeURIComponent(activeOrgId)}`;
 
       const ws = new WebSocket(wsUrl);
       socketRef.current = ws;

@@ -8,6 +8,29 @@ let onUnauthorizedCallback: (() => void) | null = null;
 // Single-flight refresh token mutex / promise
 let refreshPromise: Promise<string | null> | null = null;
 
+const RAW_API_URL = ((import.meta as any).env?.VITE_API_URL as string) || '';
+
+export function resolveApiUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+
+  if (RAW_API_URL && RAW_API_URL.trim()) {
+    const base = RAW_API_URL.trim().replace(/\/+$/, '');
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+    if (base.endsWith('/api/v1') && cleanEndpoint.startsWith('/api/v1')) {
+      return `${base.replace(/\/api\/v1$/, '')}${cleanEndpoint}`;
+    }
+    if (!base.endsWith('/api/v1') && !cleanEndpoint.startsWith('/api')) {
+      return `${base}/api/v1${cleanEndpoint}`;
+    }
+    return `${base}${cleanEndpoint}`;
+  }
+
+  return endpoint.startsWith('/api') ? endpoint : `/api/v1${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+}
+
 export function setActiveOrganizationId(orgId: string | null): void {
   activeOrganizationId = orgId;
 }
@@ -53,7 +76,7 @@ export async function refreshAccessTokenSingleFlight(): Promise<string | null> {
 
   refreshPromise = (async () => {
     try {
-      const response = await fetch('/api/v1/auth/refresh', {
+      const response = await fetch(resolveApiUrl('/auth/refresh'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +120,7 @@ export interface RequestOptions extends RequestInit {
  * Robust, authenticated API Client fetch wrapper.
  */
 export async function apiRequest<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const url = endpoint.startsWith('/api') ? endpoint : `/api/v1${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const url = resolveApiUrl(endpoint);
 
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
@@ -174,7 +197,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
  * Converts to blob, triggers download, and immediately revokes the object URL.
  */
 export async function downloadAuthenticatedFile(endpoint: string, filename: string): Promise<void> {
-  const url = endpoint.startsWith('/api') ? endpoint : `/api/v1${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const url = resolveApiUrl(endpoint);
 
   const headers: Record<string, string> = {};
   const currentToken = tokenStore.getAccessToken();
