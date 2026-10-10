@@ -12,7 +12,7 @@
     "dev:server": "npm --workspace=server run dev",
     "dev:client": "npm --workspace=client run dev",
     "dev:worker": "npm --workspace=worker run dev",
-    "build": "npm --workspaces run build",
+    "build": "node api.js && npm --workspaces run build",
     "test": "npm --workspace=server run test && npm --workspace=client run test",
     "prisma:generate": "npm --workspace=server run prisma:generate",
     "prisma:migrate": "npm --workspace=server run prisma:migrate",
