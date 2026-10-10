@@ -568,14 +568,14 @@ export class ClientService {
       throw new AppError('This client is already linked to an active portal user account.', 400, 'PORTAL_ALREADY_ACTIVE');
     }
 
-    // Check if an invite was already sent to this client today (24h rate limit)
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Check if an invite was already sent to this client within the last 30 seconds (prevent rapid accidental double-clicks)
+    const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
     const recentInvite = typeof prisma.invite?.findFirst === 'function'
       ? await prisma.invite.findFirst({
           where: {
             organizationId: ctx.organizationId,
             email: client.email,
-            createdAt: { gte: oneDayAgo },
+            createdAt: { gte: thirtySecondsAgo },
           },
           orderBy: { createdAt: 'desc' },
         })
@@ -583,7 +583,7 @@ export class ClientService {
 
     if (recentInvite) {
       throw new AppError(
-        'An invitation email was already sent to this client today. You can only send one invitation per day.',
+        'An invitation was just sent to this client. Please wait 30 seconds before sending another.',
         429,
         'INVITE_RATE_LIMIT_EXCEEDED'
       );
