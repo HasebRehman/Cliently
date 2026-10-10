@@ -103,7 +103,7 @@ export function getFriendlyErrorMessage(err: unknown): string {
   const serverMsg = apiErr.response?.data?.error?.message || apiErr.response?.data?.message || apiErr.message;
 
   if (status === 429 || errorCode === 'RATE_LIMIT_EXCEEDED') {
-    return 'Too many requests. Please wait a moment before trying again.';
+    return serverMsg || 'Too many requests. Please wait a moment before trying again.';
   }
 
   if (status === 401 || errorCode === 'UNAUTHORIZED' || errorCode === 'INVALID_CREDENTIALS') {
