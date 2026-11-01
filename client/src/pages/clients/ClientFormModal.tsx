@@ -322,12 +322,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           label="Internal Notes"
           disabled={isEditing}
           placeholder="Specific client payment terms, preferences, or internal notes..."
-          rows={3}
+          rows={2}
           error={errors.notes?.message}
           {...register('notes')}
         />
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+        <div className="sticky -bottom-5 sm:-bottom-6 -mx-5 sm:-mx-6 px-5 sm:px-6 py-3.5 bg-white/95 backdrop-blur-sm border-t border-slate-100 flex items-center justify-end gap-3 mt-4 z-10">
           <Button
             type="button"
             variant="secondary"
