@@ -47,7 +47,44 @@ export async function sendEmail({
     return;
   }
 
-  // 1. If RESEND_API_KEY is configured, use Resend's HTTPS API (Port 443, never blocked by Render Free tier)
+  // 1. If BREVO_API_KEY is configured, use Brevo's HTTPS API (can send to ANY client email on Render free tier)
+  if (env.BREVO_API_KEY) {
+    try {
+      const fromAddress = env.EMAIL_FROM.includes('@') && !env.EMAIL_FROM.endsWith('.local')
+        ? env.EMAIL_FROM
+        : 'hasebrehman3460@gmail.com';
+
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': env.BREVO_API_KEY.trim(),
+        },
+        body: JSON.stringify({
+          sender: {
+            name: env.APP_NAME,
+            email: fromAddress,
+          },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+          textContent: text || html.replace(/<[^>]*>?/gm, ''),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.warn(`⚠️ Brevo API returned error HTTP ${res.status}:`, errorText);
+      } else {
+        console.log(`✉️ Successfully dispatched email to ${to} via Brevo HTTPS API`);
+        return;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to send email via Brevo API to ${to}:`, error instanceof Error ? error.message : error);
+    }
+  }
+
+  // 2. If RESEND_API_KEY is configured, use Resend's HTTPS API
   if (env.RESEND_API_KEY) {
     try {
       const fromAddress = env.EMAIL_FROM.includes('@') && !env.EMAIL_FROM.endsWith('.local')

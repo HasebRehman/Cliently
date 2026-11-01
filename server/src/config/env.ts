@@ -30,6 +30,7 @@ export const envSchema = z.object({
   SMTP_SECURE: z.string().transform((val) => val === 'true').default('false'),
   EMAIL_FROM: z.string().default('no-reply@cliently.local'),
   RESEND_API_KEY: z.string().optional(),
+  BREVO_API_KEY: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRO_PRICE_ID: z.string().optional(),
