@@ -597,6 +597,9 @@ export class InvoiceService {
     });
 
     const recipientEmail = existing.clientEmail || existing.client.email;
+    if (!recipientEmail) {
+      throw new AppError('Client does not have an email address to receive invoices.', 400, 'CLIENT_EMAIL_REQUIRED');
+    }
     let emailDelivered = true;
     let genericErrorCode: string | null = null;
 
@@ -732,6 +735,9 @@ export class InvoiceService {
     });
 
     const recipientEmail = invoice.clientEmail || invoice.client.email;
+    if (!recipientEmail) {
+      throw new AppError('Client does not have an email address to receive invoices.', 400, 'CLIENT_EMAIL_REQUIRED');
+    }
     let emailDelivered = true;
     let genericErrorCode: string | null = null;
 

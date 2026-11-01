@@ -259,7 +259,7 @@ model Client {
   organizationId String
   userId         String?           // Optional link to a User with CLIENT role for the portal
   name           String
-  email          String
+  email          String?
   company        String?
   address        String?
   phone          String?

@@ -6,7 +6,7 @@ export interface Client {
   organizationId: string;
   userId?: string | null;
   name: string;
-  email: string;
+  email?: string | null;
   company?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -39,7 +39,7 @@ export interface Client {
 
 export interface ClientInput {
   name: string;
-  email: string;
+  email?: string | null;
   company?: string | null;
   address?: string | null;
   phone?: string | null;

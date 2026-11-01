@@ -82,13 +82,13 @@ export const ClientListPage: React.FC = () => {
   });
 
   const portalInviteMutation = useMutation({
-    mutationFn: ({ id }: { id: string; name: string; email: string }) =>
+    mutationFn: ({ id }: { id: string; name: string; email?: string | null }) =>
       api.post(`/clients/${id}/portal-invite`),
     onMutate: (variables) => {
       setInvitingClientId(variables.id);
     },
     onSuccess: (_, variables) => {
-      success(`Portal invite sent exclusively to ${variables.name} (${variables.email})`);
+      success(`Portal invite sent exclusively to ${variables.name}${variables.email ? ` (${variables.email})` : ''}`);
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
     onError: (err) => {
@@ -305,7 +305,7 @@ export const ClientListPage: React.FC = () => {
                                 {client.name}
                               </Link>
                               <div className="text-[11px] text-slate-500 truncate max-w-[200px]">
-                                {client.email}
+                                {client.email || <span className="text-slate-400 italic">No email</span>}
                               </div>
                             </div>
                           </div>
@@ -394,7 +394,9 @@ export const ClientListPage: React.FC = () => {
                                   </button>
                                 ) : (
                                   (() => {
+                                    const hasEmail = Boolean(client.email);
                                     const canSend =
+                                      hasEmail &&
                                       client.canSendInvite !== false &&
                                       (!client.lastInviteSentAt ||
                                         Date.now() - new Date(client.lastInviteSentAt).getTime() >=
@@ -417,7 +419,9 @@ export const ClientListPage: React.FC = () => {
                                           }
                                         }}
                                         title={
-                                          !canSend
+                                          !hasEmail
+                                            ? 'No email address provided. Edit client to add email before inviting.'
+                                            : !canSend
                                             ? `Invitation already sent today to ${client.email} (Limit: 1 invitation per day)`
                                             : isInvited
                                             ? `Resend portal invitation to ${client.email}`
@@ -425,7 +429,7 @@ export const ClientListPage: React.FC = () => {
                                         }
                                         className={`p-1.5 rounded-lg transition-colors ${
                                           !canSend
-                                            ? 'text-blue-300 bg-blue-50/30 cursor-not-allowed opacity-60'
+                                            ? 'text-slate-300 bg-slate-50/50 cursor-not-allowed opacity-60'
                                             : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
                                         }`}
                                       >

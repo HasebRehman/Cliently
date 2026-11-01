@@ -152,7 +152,9 @@ export const ClientDetailPage: React.FC = () => {
                 leftIcon={<Send className="w-4 h-4 text-blue-600" />}
                 onClick={() => portalInviteMutation.mutate()}
                 isLoading={portalInviteMutation.isPending}
-                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 font-bold cursor-pointer"
+                disabled={!client.email}
+                title={!client.email ? 'No email address provided. Update client with an email to invite to portal.' : 'Invite client to portal'}
+                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Invite to Portal
               </Button>
@@ -251,13 +253,19 @@ export const ClientDetailPage: React.FC = () => {
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Contact Email
               </span>
-              <a
-                href={`mailto:${client.email}`}
-                className="text-sm font-bold text-slate-900 hover:text-blue-600 transition truncate block max-w-[200px]"
-                title={client.email}
-              >
-                {client.email}
-              </a>
+              {client.email ? (
+                <a
+                  href={`mailto:${client.email}`}
+                  className="text-sm font-bold text-slate-900 hover:text-blue-600 transition truncate block max-w-[200px]"
+                  title={client.email}
+                >
+                  {client.email}
+                </a>
+              ) : (
+                <span className="text-sm font-semibold text-slate-400 italic">
+                  No email provided
+                </span>
+              )}
             </div>
           </div>
         </div>

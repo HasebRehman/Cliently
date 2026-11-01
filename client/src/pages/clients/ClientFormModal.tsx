@@ -14,7 +14,14 @@ import { Sparkles, ChevronDown, Check, ShieldCheck, Archive } from 'lucide-react
 
 const clientFormSchema = z.object({
   name: z.string().min(1, 'Client name is required').max(150, 'Name too long').trim(),
-  email: z.string().min(1, 'Email is required').email('Invalid email format').toLowerCase().trim(),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Invalid email format')
+    .optional()
+    .nullable()
+    .or(z.literal('').transform(() => null)),
   company: z.string().max(150, 'Company name too long').trim().optional().or(z.literal('')),
   phone: z.string().max(50, 'Phone too long').trim().optional().or(z.literal('')),
   address: z.string().max(300, 'Address too long').trim().optional().or(z.literal('')),
@@ -68,7 +75,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
     if (clientToEdit) {
       reset({
         name: clientToEdit.name,
-        email: clientToEdit.email,
+        email: clientToEdit.email || '',
         company: clientToEdit.company || '',
         phone: clientToEdit.phone || '',
         address: clientToEdit.address || '',
@@ -115,7 +122,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       } else {
         const payload: ClientInput = {
           name: data.name,
-          email: data.email,
+          email: data.email ? data.email.trim().toLowerCase() : null,
           company: data.company || null,
           phone: data.phone || null,
           address: data.address || null,
@@ -167,9 +174,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           <Input
             type="email"
             label="Email Address"
-            required={!isEditing}
             disabled={isEditing}
-            placeholder="billing@acme.com"
+            placeholder="billing@acme.com (optional)"
             error={errors.email?.message}
             {...register('email')}
           />

@@ -4,7 +4,14 @@ import { ClientStatus } from '@prisma/client';
 export const createClientSchema = z
   .object({
     name: z.string().min(1, 'Client name is required').max(150, 'Name too long').trim(),
-    email: z.string().trim().toLowerCase().pipe(z.string().email('Invalid email format')),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email('Invalid email format')
+      .optional()
+      .nullable()
+      .or(z.literal('').transform(() => null)),
     company: z.string().max(150, 'Company name too long').trim().optional().nullable(),
     address: z.string().max(300, 'Address too long').trim().optional().nullable(),
     phone: z.string().max(50, 'Phone too long').trim().optional().nullable(),
@@ -15,7 +22,14 @@ export const createClientSchema = z
 export const updateClientSchema = z
   .object({
     name: z.string().min(1, 'Client name is required').max(150, 'Name too long').trim().optional(),
-    email: z.string().trim().toLowerCase().pipe(z.string().email('Invalid email format')).optional(),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email('Invalid email format')
+      .optional()
+      .nullable()
+      .or(z.literal('').transform(() => null)),
     company: z.string().max(150, 'Company name too long').trim().optional().nullable(),
     address: z.string().max(300, 'Address too long').trim().optional().nullable(),
     phone: z.string().max(50, 'Phone too long').trim().optional().nullable(),

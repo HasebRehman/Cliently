@@ -13,7 +13,7 @@ export class ClientService {
    * 1. Create a new client (Scoped to organizationId with row-lock serialized plan limit enforcement)
    */
   async createClient(ctx: TenantContext, input: CreateClientInput) {
-    const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedEmail = input.email ? input.email.trim().toLowerCase() : null;
 
     return prisma.$transaction(async (tx) => {
       // 1. Acquire exclusive lock on Organization row to serialize concurrent creates
@@ -25,20 +25,22 @@ export class ClientService {
       // 2. Enforce plan limit inside transaction while holding row lock
       await enforcePlanLimit(tx, ctx, 'clients');
 
-      // 3. Ensure email uniqueness per organization
-      const existing = await tx.client.findFirst({
-        where: {
-          organizationId: ctx.organizationId,
-          email: normalizedEmail,
-        },
-      });
+      // 3. Ensure email uniqueness per organization if email provided
+      if (normalizedEmail) {
+        const existing = await tx.client.findFirst({
+          where: {
+            organizationId: ctx.organizationId,
+            email: normalizedEmail,
+          },
+        });
 
-      if (existing) {
-        throw new AppError(
-          'A client with this email already exists in your organization.',
-          409,
-          'DUPLICATE_CLIENT_EMAIL'
-        );
+        if (existing) {
+          throw new AppError(
+            'A client with this email already exists in your organization.',
+            409,
+            'DUPLICATE_CLIENT_EMAIL'
+          );
+        }
       }
 
       // 4. Create client record
@@ -112,7 +114,9 @@ export class ClientService {
     ]);
 
     // Find invites for these clients
-    const clientEmails = clients.map((c) => c.email).filter(Boolean);
+    const clientEmails = clients
+      .map((c) => c.email)
+      .filter((email): email is string => Boolean(email));
     const existingInvites =
       clientEmails.length > 0 && typeof prisma.invite?.findMany === 'function'
         ? await prisma.invite.findMany({
@@ -143,10 +147,10 @@ export class ClientService {
 
     return {
       data: clients.map((c) => {
-        const emailLower = c.email.toLowerCase();
-        const lastInviteDate = latestInviteByEmail.get(emailLower) || null;
+        const emailLower = c.email ? c.email.toLowerCase() : null;
+        const lastInviteDate = emailLower ? latestInviteByEmail.get(emailLower) || null : null;
         const wasSentToday = lastInviteDate ? lastInviteDate >= oneDayAgo : false;
-        const canSendInvite = !c.userId && !wasSentToday;
+        const canSendInvite = Boolean(c.email) && !c.userId && !wasSentToday;
 
         return {
           id: c.id,
@@ -159,7 +163,7 @@ export class ClientService {
           userId: c.userId,
           portalStatus: c.userId
             ? 'ACTIVE'
-            : pendingEmailSet.has(emailLower)
+            : emailLower && pendingEmailSet.has(emailLower)
             ? 'INVITED'
             : 'NOT_INVITED',
           hasPortalAccess: c.userId !== null,
@@ -310,10 +314,13 @@ export class ClientService {
       throw new AppError('Client not found.', 404, 'CLIENT_NOT_FOUND');
     }
 
-    const normalizedEmail = input.email ? input.email.trim().toLowerCase() : undefined;
+    const normalizedEmail =
+      input.email !== undefined
+        ? input.email ? input.email.trim().toLowerCase() : null
+        : undefined;
 
     // Check duplicate email if email is being modified
-    if (normalizedEmail && normalizedEmail !== existing.email.toLowerCase()) {
+    if (normalizedEmail && normalizedEmail !== existing.email?.toLowerCase()) {
       const emailConflict = await prisma.client.findFirst({
         where: {
           organizationId: ctx.organizationId,
@@ -345,7 +352,7 @@ export class ClientService {
         where: { id: existing.id },
         data: {
           ...(input.name !== undefined && { name: input.name.trim() }),
-          ...(normalizedEmail !== undefined && { email: normalizedEmail }),
+          ...(input.email !== undefined && { email: normalizedEmail }),
           ...(input.company !== undefined && { company: input.company ? input.company.trim() : null }),
           ...(input.address !== undefined && { address: input.address ? input.address.trim() : null }),
           ...(input.phone !== undefined && { phone: input.phone ? input.phone.trim() : null }),
@@ -564,6 +571,16 @@ export class ClientService {
       throw new AppError('Client not found.', 404, 'CLIENT_NOT_FOUND');
     }
 
+    if (!client.email) {
+      throw new AppError(
+        'Client does not have an email address. Please update the client with an email address before sending a portal invite.',
+        400,
+        'CLIENT_EMAIL_REQUIRED'
+      );
+    }
+
+    const clientEmail = client.email;
+
     if (client.userId) {
       throw new AppError('This client is already linked to an active portal user account.', 400, 'PORTAL_ALREADY_ACTIVE');
     }
@@ -574,7 +591,7 @@ export class ClientService {
       ? await prisma.invite.findFirst({
           where: {
             organizationId: ctx.organizationId,
-            email: client.email,
+            email: clientEmail,
             createdAt: { gte: thirtySecondsAgo },
           },
           orderBy: { createdAt: 'desc' },
@@ -598,7 +615,7 @@ export class ClientService {
       await tx.invite.updateMany({
         where: {
           organizationId: ctx.organizationId,
-          email: client.email,
+          email: clientEmail,
           status: InviteStatus.PENDING,
         },
         data: { status: InviteStatus.CANCELLED },
@@ -607,7 +624,7 @@ export class ClientService {
       const createdInvite = await tx.invite.create({
         data: {
           organizationId: ctx.organizationId,
-          email: client.email,
+          email: clientEmail,
           role: Role.CLIENT,
           tokenHash,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -641,14 +658,14 @@ export class ClientService {
 
     const inviterName = `${inviter.firstName} ${inviter.lastName}`.trim() || 'A team member';
     try {
-      await sendInviteEmail(client.email, rawToken, org.name, inviterName, 'Client Portal');
+      await sendInviteEmail(clientEmail, rawToken, org.name, inviterName, 'Client Portal');
     } catch {
       // Non-blocking
     }
 
     return {
       success: true,
-      message: `Client portal invitation sent to ${client.email}`,
+      message: `Client portal invitation sent to ${clientEmail}`,
       inviteId: invite.id,
       expiresAt: invite.expiresAt,
     };

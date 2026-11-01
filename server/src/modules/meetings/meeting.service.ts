@@ -712,6 +712,7 @@ export class MeetingService {
 
     // Clients
     for (const c of clients) {
+      if (!c.email) continue;
       const lower = c.email.toLowerCase();
       if (!attendeeMap.has(lower)) {
         attendeeMap.set(lower, {
