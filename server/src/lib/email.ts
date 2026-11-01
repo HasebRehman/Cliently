@@ -4,28 +4,21 @@ import { escapeHtml } from '../utils/sanitize.js';
 
 const isGmail = env.SMTP_HOST === 'smtp.gmail.com' || (env.SMTP_USER && env.SMTP_USER.includes('@gmail.com'));
 
-const transporter = nodemailer.createTransport(
-  isGmail
-    ? {
-        service: 'gmail',
-        auth: {
+const transporter = nodemailer.createTransport({
+  host: env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : 'localhost'),
+  port: env.SMTP_PORT || (isGmail ? 465 : 1025),
+  secure: env.SMTP_SECURE,
+  auth:
+    env.SMTP_USER && env.SMTP_PASS
+      ? {
           user: env.SMTP_USER,
           pass: env.SMTP_PASS,
-        },
-      }
-    : {
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE,
-        auth:
-          env.SMTP_USER && env.SMTP_PASS
-            ? {
-                user: env.SMTP_USER,
-                pass: env.SMTP_PASS,
-              }
-            : undefined,
-      }
-);
+        }
+      : undefined,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
+});
 
 export async function sendEmail({
   to,

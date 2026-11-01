@@ -1,7 +1,13 @@
+import dns from 'node:dns';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 import { realtimeChat } from './lib/ws.js';
+
+// Force Node to prioritize IPv4 over IPv6 for outbound network connections (fixes Render ENETUNREACH on SMTP/APIs)
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const app = createApp();
 
