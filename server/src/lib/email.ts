@@ -47,6 +47,41 @@ export async function sendEmail({
     return;
   }
 
+  // 1. If RESEND_API_KEY is configured, use Resend's HTTPS API (Port 443, never blocked by Render Free tier)
+  if (env.RESEND_API_KEY) {
+    try {
+      const fromAddress = env.EMAIL_FROM.includes('@') && !env.EMAIL_FROM.endsWith('.local')
+        ? env.EMAIL_FROM
+        : 'onboarding@resend.dev';
+
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${env.RESEND_API_KEY.trim()}`,
+        },
+        body: JSON.stringify({
+          from: `${env.APP_NAME} <${fromAddress}>`,
+          to: [to],
+          subject,
+          html,
+          text: text || html.replace(/<[^>]*>?/gm, ''),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.warn(`⚠️ Resend API returned error HTTP ${res.status}:`, errorText);
+      } else {
+        console.log(`✉️ Successfully dispatched email to ${to} via Resend HTTPS API`);
+        return;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to send email via Resend API to ${to}:`, error instanceof Error ? error.message : error);
+    }
+  }
+
+  // 2. Fallback to standard SMTP (local dev or environments with unblocked SMTP ports)
   try {
     await transporter.sendMail({
       from: `"${env.APP_NAME}" <${env.EMAIL_FROM}>`,
@@ -57,6 +92,7 @@ export async function sendEmail({
       attachments,
       icalEvent,
     });
+    console.log(`✉️ Successfully dispatched email to ${to} via SMTP`);
   } catch (error) {
     console.warn(`⚠️ Failed to send email to ${to}:`, error instanceof Error ? error.message : error);
   }
