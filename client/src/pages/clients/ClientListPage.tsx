@@ -1,5 +1,5 @@
 import React, { useState, useDeferredValue } from 'react';
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/apiClient.js';
 import { Client } from '../../types/client.js';
 import { useAuth } from '../../contexts/AuthContext.js';
@@ -61,7 +61,6 @@ export const ClientListPage: React.FC = () => {
   const { data, isLoading, isFetching, isError, error: fetchError, refetch } = useQuery({
     queryKey: ['clients', { page, limit, search: deferredSearch, statusFilter }],
     queryFn: () => api.get<{ data: Client[]; pagination: any }>(`/clients?${queryParams.toString()}`),
-    placeholderData: keepPreviousData,
   });
 
   const deleteMutation = useMutation({
@@ -73,6 +72,7 @@ export const ClientListPage: React.FC = () => {
         success('Client permanently deleted');
       }
       setClientToDelete(null);
+      queryClient.removeQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['organization', 'current'] });
     },
@@ -204,7 +204,7 @@ export const ClientListPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {isLoading && !data ? (
+                  {isLoading || (isFetching && !data) ? (
                     Array.from({ length: 5 }).map((_, idx) => (
                       <tr key={idx} className="animate-pulse">
                         <td className="px-5 py-4">
@@ -502,7 +502,9 @@ export const ClientListPage: React.FC = () => {
         onSuccess={() => {
           setIsFormModalOpen(false);
           setClientToEdit(null);
+          queryClient.removeQueries({ queryKey: ['clients'] });
           queryClient.invalidateQueries({ queryKey: ['clients'] });
+          queryClient.invalidateQueries({ queryKey: ['organization', 'current'] });
         }}
         clientToEdit={clientToEdit}
       />

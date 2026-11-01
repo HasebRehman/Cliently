@@ -77,6 +77,7 @@ export const ClientDetailPage: React.FC = () => {
     mutationFn: () => api.delete(`/clients/${id}`),
     onSuccess: () => {
       success('Client archived / removed successfully');
+      queryClient.removeQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       navigate('/clients');
     },
@@ -457,6 +458,7 @@ export const ClientDetailPage: React.FC = () => {
         clientToEdit={client}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['client', id] });
+          queryClient.removeQueries({ queryKey: ['clients'] });
           queryClient.invalidateQueries({ queryKey: ['clients'] });
         }}
       />
