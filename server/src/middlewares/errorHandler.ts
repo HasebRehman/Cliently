@@ -87,7 +87,7 @@ export const errorHandler: ErrorRequestHandler = (
     success: false,
     error: {
       code: 'INTERNAL_SERVER_ERROR',
-      message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+      message: err.message || 'Internal server error',
     },
   });
 };
