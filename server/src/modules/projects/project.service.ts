@@ -242,7 +242,7 @@ export class ProjectService {
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,
         })),
-        invoicesCount: p._count.invoices,
+        invoicesCount: p._count?.invoices ?? 0,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       })),
@@ -385,27 +385,53 @@ export class ProjectService {
       ? project.invoices.filter((inv) => inv.status !== 'DRAFT')
       : project.invoices;
 
-    const assignedMembers = await prisma.membership.findMany({
-      where: {
-        organizationId: ctx.organizationId,
-        OR: [
-          { projectId: project.id },
-          { projectIds: { has: project.id } },
-        ],
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            avatarUrl: true,
+    let assignedMembers: any[] = [];
+    try {
+      assignedMembers = await prisma.membership.findMany({
+        where: {
+          organizationId: ctx.organizationId,
+          OR: [
+            { projectId: project.id },
+            { projectIds: { has: project.id } },
+          ],
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch {
+      try {
+        assignedMembers = await prisma.membership.findMany({
+          where: {
+            organizationId: ctx.organizationId,
+            projectId: project.id,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        });
+      } catch (fallbackErr) {
+        console.warn('⚠️ Fallback assigned members query failed:', fallbackErr);
+      }
+    }
 
     return {
       id: project.id,

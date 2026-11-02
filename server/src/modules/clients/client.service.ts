@@ -118,17 +118,21 @@ export class ClientService {
     const clientEmails = clients
       .map((c) => c.email)
       .filter((email): email is string => Boolean(email));
-    const existingInvites =
-      clientEmails.length > 0 && typeof prisma.invite?.findMany === 'function'
-        ? await prisma.invite.findMany({
-            where: {
-              organizationId: ctx.organizationId,
-              email: { in: clientEmails },
-            },
-            orderBy: { createdAt: 'desc' },
-            select: { email: true, status: true, expiresAt: true, createdAt: true },
-          })
-        : [];
+    let existingInvites: Array<{ email: string; status: InviteStatus; expiresAt: Date; createdAt: Date }> = [];
+    try {
+      if (clientEmails.length > 0 && typeof prisma.invite?.findMany === 'function') {
+        existingInvites = await prisma.invite.findMany({
+          where: {
+            organizationId: ctx.organizationId,
+            email: { in: clientEmails },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { email: true, status: true, expiresAt: true, createdAt: true },
+        });
+      }
+    } catch (inviteErr) {
+      console.warn('⚠️ Could not fetch existing invites for clients list:', inviteErr);
+    }
 
     const pendingEmailSet = new Set(
       existingInvites
