@@ -14,6 +14,7 @@ export const memberParamSchema = z.object({
 export const updateMemberDetailsSchema = z.object({
   phone: z.string().max(50, 'Phone too long').trim().nullable().optional().or(z.literal('')),
   projectId: z.string().uuid().nullable().optional().or(z.literal('')),
+  projectIds: z.array(z.string().uuid()).optional(),
 });
 
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;

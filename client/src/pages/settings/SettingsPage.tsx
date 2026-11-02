@@ -525,7 +525,7 @@ export const SettingsPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40%]">Email</TableHead>
+                      <TableHead className="w-[40%]">Invitee</TableHead>
                       <TableHead className="w-[25%]">Role</TableHead>
                       <TableHead className="w-[25%]">Expires</TableHead>
                       <TableHead className="w-[10%] text-right">Actions</TableHead>
@@ -534,7 +534,16 @@ export const SettingsPage: React.FC = () => {
                   <TableBody>
                     {paginatedInvites.map((invite) => (
                       <TableRow key={invite.id}>
-                        <TableCell className="font-bold text-slate-900">{invite.email}</TableCell>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 truncate">
+                              {invite.name || <span className="text-slate-400 italic">No name provided</span>}
+                            </div>
+                            <div className="text-xs text-slate-500 truncate">
+                              {invite.email}
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <RoleBadge role={invite.role} />
                         </TableCell>

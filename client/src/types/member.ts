@@ -6,6 +6,7 @@ export interface OrgMember {
   organizationId: string;
   role: Role;
   projectId?: string | null;
+  projectIds?: string[];
   project?: {
     id: string;
     name: string;
@@ -14,6 +15,14 @@ export interface OrgMember {
       name: string;
     } | null;
   } | null;
+  projects?: Array<{
+    id: string;
+    name: string;
+    client?: {
+      id: string;
+      name: string;
+    } | null;
+  }>;
   createdAt: string;
   user: {
     id: string;
@@ -28,12 +37,15 @@ export interface OrgMember {
 export interface UpdateMemberInput {
   phone?: string | null;
   projectId?: string | null;
+  projectIds?: string[];
 }
 
 export interface PendingInvite {
   id: string;
   organizationId: string;
   email: string;
+  name?: string | null;
+  phone?: string | null;
   role: Role;
   expiresAt: string;
   createdAt: string;

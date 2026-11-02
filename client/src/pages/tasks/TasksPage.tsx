@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { useToast } from '../../contexts/ToastContext.js';
@@ -26,8 +27,31 @@ import {
   Edit2,
   Trash2,
   Filter,
+  ChevronDown,
+  Check,
+  X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
+
+const PRIORITY_FILTER_OPTIONS: { value: 'ALL' | TaskPriority; label: string; dotColor: string }[] = [
+  { value: 'ALL', label: 'All Priorities', dotColor: 'bg-slate-400' },
+  { value: 'LOW', label: 'Low', dotColor: 'bg-emerald-500' },
+  { value: 'MEDIUM', label: 'Medium', dotColor: 'bg-amber-500' },
+  { value: 'HIGH', label: 'High', dotColor: 'bg-orange-500' },
+  { value: 'URGENT', label: 'Urgent ⚡', dotColor: 'bg-rose-500' },
+];
+
+const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string; dotColor: string }[] = [
+  { value: 'TODO', label: 'To Do', dotColor: 'bg-slate-400' },
+  { value: 'IN_PROGRESS', label: 'In Progress', dotColor: 'bg-blue-500' },
+  { value: 'COMPLETED', label: 'Complete', dotColor: 'bg-amber-500' },
+  { value: 'REVIEW', label: 'In Review', dotColor: 'bg-purple-500' },
+  { value: 'DONE', label: 'Done', dotColor: 'bg-emerald-500' },
+];
+
+const getStatusConfig = (status: TaskStatus) => {
+  return TASK_STATUS_OPTIONS.find((s) => s.value === status) || TASK_STATUS_OPTIONS[0];
+};
 
 export const TasksPage: React.FC = () => {
   const { currentRole } = useAuth();
@@ -50,6 +74,69 @@ export const TasksPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  // Custom Dropdowns state
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
+  const [isPriorityFilterOpen, setIsPriorityFilterOpen] = useState(false);
+  const [openStatusDropdownId, setOpenStatusDropdownId] = useState<string | null>(null);
+
+  // Delete Confirmation Modal state
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const projectFilterRef = React.useRef<HTMLDivElement>(null);
+  const priorityFilterRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (projectFilterRef.current && !projectFilterRef.current.contains(event.target as Node)) {
+        setIsProjectFilterOpen(false);
+      }
+      if (priorityFilterRef.current && !priorityFilterRef.current.contains(event.target as Node)) {
+        setIsPriorityFilterOpen(false);
+      }
+      if (openStatusDropdownId !== null) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-status-dropdown]')) {
+          setOpenStatusDropdownId(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openStatusDropdownId]);
+
+  // Handle ESC key and scroll lock for Delete Modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && taskToDelete && !isDeleting) {
+        setTaskToDelete(null);
+      }
+    };
+    if (taskToDelete) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [taskToDelete, isDeleting]);
+
+  const getAvailableStatusOptions = (currentStatus: TaskStatus) => {
+    if (currentRole === 'MEMBER') {
+      return TASK_STATUS_OPTIONS.filter(
+        (opt) =>
+          opt.value === 'TODO' ||
+          opt.value === 'IN_PROGRESS' ||
+          opt.value === 'COMPLETED' ||
+          opt.value === currentStatus
+      );
+    }
+    return TASK_STATUS_OPTIONS;
+  };
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
@@ -94,15 +181,19 @@ export const TasksPage: React.FC = () => {
     }
   };
 
-  // Quick Delete handler (Owner only)
-  const handleDeleteTask = async (taskId: string) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
+  // Delete confirmation handler (Owner only)
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/tasks/${taskId}`);
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      await api.delete(`/tasks/${taskToDelete.id}`);
+      setTasks((prev) => prev.filter((t) => t.id !== taskToDelete.id));
       toastSuccess('Task deleted successfully');
+      setTaskToDelete(null);
     } catch (err: any) {
       toastError(err?.message || 'Failed to delete task');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -135,6 +226,7 @@ export const TasksPage: React.FC = () => {
 
   const totalPages = Math.ceil(filteredTasks.length / pageSize) || 1;
   const paginatedTasks = filteredTasks.slice((page - 1) * pageSize, page * pageSize);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   const getPriorityBadge = (priority: TaskPriority) => {
     switch (priority) {
@@ -421,42 +513,152 @@ const TaskProgressCircle: React.FC<{
             </div>
 
             {/* Project Filter */}
-            <div className="relative w-full sm:w-64">
-              <FolderKanban className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <select
-                value={selectedProjectId}
-                onChange={(e) => {
-                  setSelectedProjectId(e.target.value);
-                  setPage(1);
+            <div ref={projectFilterRef} className="relative w-full sm:w-64">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProjectFilterOpen((prev) => !prev);
+                  setIsPriorityFilterOpen(false);
+                  setOpenStatusDropdownId(null);
                 }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#535C91] focus:ring-2 focus:ring-[#535C91]/20 transition"
+                className={cn(
+                  "w-full flex items-center justify-between px-3.5 py-2 bg-slate-50 border rounded-xl text-xs sm:text-sm font-semibold transition-all text-left cursor-pointer",
+                  "focus:outline-none focus:ring-2 focus:ring-[#535C91]/20",
+                  isProjectFilterOpen
+                    ? "border-[#535C91] bg-white ring-2 ring-[#535C91]/20 text-[#070F2B]"
+                    : "border-slate-200 text-slate-800 hover:border-slate-300 hover:bg-white"
+                )}
               >
-                <option value="ALL">All Projects ({projects.length})</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                <div className="flex items-center gap-2 min-w-0 pr-2">
+                  <FolderKanban className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="truncate">
+                    {selectedProjectId === 'ALL'
+                      ? `All Projects (${projects.length})`
+                      : selectedProject?.name || 'Select Project'}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200",
+                    isProjectFilterOpen && "rotate-180 text-[#535C91]"
+                  )}
+                />
+              </button>
+
+              {isProjectFilterOpen && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProjectId('ALL');
+                      setPage(1);
+                      setIsProjectFilterOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer my-0.5",
+                      selectedProjectId === 'ALL'
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      <FolderKanban className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="truncate">All Projects ({projects.length})</span>
+                    </div>
+                    {selectedProjectId === 'ALL' && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                  </button>
+
+                  {projects.map((p) => {
+                    const isSelected = selectedProjectId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProjectId(p.id);
+                          setPage(1);
+                          setIsProjectFilterOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer my-0.5",
+                          isSelected
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <FolderKanban className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span className="truncate">{p.name}</span>
+                        </div>
+                        {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Priority Filter */}
-            <div className="relative w-full sm:w-44">
-              <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <select
-                value={priorityFilter}
-                onChange={(e) => {
-                  setPriorityFilter(e.target.value as any);
-                  setPage(1);
+            <div ref={priorityFilterRef} className="relative w-full sm:w-44">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPriorityFilterOpen((prev) => !prev);
+                  setIsProjectFilterOpen(false);
+                  setOpenStatusDropdownId(null);
                 }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#535C91]"
+                className={cn(
+                  "w-full flex items-center justify-between px-3.5 py-2 bg-slate-50 border rounded-xl text-xs sm:text-sm font-semibold transition-all text-left cursor-pointer",
+                  "focus:outline-none focus:ring-2 focus:ring-[#535C91]/20",
+                  isPriorityFilterOpen
+                    ? "border-[#535C91] bg-white ring-2 ring-[#535C91]/20 text-[#070F2B]"
+                    : "border-slate-200 text-slate-800 hover:border-slate-300 hover:bg-white"
+                )}
               >
-                <option value="ALL">All Priorities</option>
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent ⚡</option>
-              </select>
+                <div className="flex items-center gap-2 min-w-0 pr-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate">
+                    {PRIORITY_FILTER_OPTIONS.find((opt) => opt.value === priorityFilter)?.label || 'All Priorities'}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200",
+                    isPriorityFilterOpen && "rotate-180 text-[#535C91]"
+                  )}
+                />
+              </button>
+
+              {isPriorityFilterOpen && (
+                <div className="absolute z-50 top-full left-0 right-0 sm:w-48 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                  {PRIORITY_FILTER_OPTIONS.map((opt) => {
+                    const isSelected = priorityFilter === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setPriorityFilter(opt.value);
+                          setPage(1);
+                          setIsPriorityFilterOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer my-0.5",
+                          isSelected
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span className={cn("w-2 h-2 rounded-full shrink-0", opt.dotColor)} />
+                          <span className="truncate">{opt.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -565,14 +767,14 @@ const TaskProgressCircle: React.FC<{
         </div>
       ) : viewMode === 'LIST' ? (
         /* ================= LIST VIEW ================= */
-        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden flex flex-col">
+        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col">
           {/* Header Bar */}
-          <div className="bg-[#070F2B] text-white px-6 py-3.5 text-[11px] font-bold uppercase tracking-wider hidden md:grid md:grid-cols-12 md:gap-4 items-center font-heading">
-            <div className="col-span-5">Task / Deliverable</div>
+          <div className="bg-[#070F2B] text-white px-6 py-3.5 text-[11px] font-bold uppercase tracking-wider hidden md:grid md:grid-cols-12 md:gap-4 items-center font-heading rounded-t-2xl">
+            <div className="col-span-4">Task / Deliverable</div>
             <div className="col-span-2">Project</div>
             <div className="col-span-2">Assignee & Due Date</div>
             <div className="col-span-1">Priority</div>
-            <div className="col-span-1">Status</div>
+            <div className="col-span-2">Status</div>
             <div className="col-span-1 text-right">
               {currentRole === 'OWNER' ? 'Actions' : 'State'}
             </div>
@@ -580,7 +782,7 @@ const TaskProgressCircle: React.FC<{
 
           {/* List Rows */}
           <div className="divide-y divide-slate-100">
-            {paginatedTasks.map((task) => {
+            {paginatedTasks.map((task, rowIndex) => {
               const isDone = task.status === 'DONE';
               const isCompleted = task.status === 'COMPLETED';
               const formattedDueDate = task.dueDate
@@ -599,7 +801,7 @@ const TaskProgressCircle: React.FC<{
                   )}
                 >
                   {/* Task Title & Description */}
-                  <div className="col-span-5 flex items-start gap-3 min-w-0">
+                  <div className="col-span-4 flex items-start gap-3 min-w-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -690,35 +892,66 @@ const TaskProgressCircle: React.FC<{
                   </div>
 
                   {/* Status Dropdown - Role restricted */}
-                  <div className="col-span-1">
-                    <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                      className="text-xs font-bold rounded-lg border border-slate-200 bg-white/90 px-2 py-1 text-slate-700 focus:outline-none focus:border-[#535C91] cursor-pointer shadow-2xs"
-                    >
-                      {currentRole === 'MEMBER' ? (
-                        <>
-                          <option value="TODO">To Do</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="COMPLETED">Complete</option>
-                          {/* If owner has set it to REVIEW or DONE, show disabled for member so it doesn't break */}
-                          {task.status === 'REVIEW' && (
-                            <option value="REVIEW" disabled>In Review</option>
-                          )}
-                          {task.status === 'DONE' && (
-                            <option value="DONE" disabled>Done</option>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <option value="TODO">To Do</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="COMPLETED">Complete</option>
-                          <option value="REVIEW">In Review</option>
-                          <option value="DONE">Done</option>
-                        </>
+                  <div className="col-span-2 relative" data-status-dropdown>
+                    <button
+                      type="button"
+                      onClick={() => setOpenStatusDropdownId(openStatusDropdownId === task.id ? null : task.id)}
+                      className={cn(
+                        "inline-flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer shadow-2xs whitespace-nowrap",
+                        "focus:outline-none focus:ring-2 focus:ring-[#535C91]/20",
+                        openStatusDropdownId === task.id
+                          ? "border-[#535C91] bg-white ring-2 ring-[#535C91]/20 text-[#070F2B]"
+                          : "border-slate-200 bg-white/95 text-slate-700 hover:border-slate-300 hover:bg-white"
                       )}
-                    </select>
+                    >
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={cn("w-2 h-2 rounded-full shrink-0", getStatusConfig(task.status).dotColor)} />
+                        <span className="whitespace-nowrap">{getStatusConfig(task.status).label}</span>
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          "w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1",
+                          openStatusDropdownId === task.id && "rotate-180 text-[#535C91]"
+                        )}
+                      />
+                    </button>
+
+                    {openStatusDropdownId === task.id && (
+                      <div
+                        className={cn(
+                          "absolute z-50 left-0 min-w-[145px] bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5 animate-in fade-in duration-150",
+                          rowIndex >= paginatedTasks.length - 2 && paginatedTasks.length > 2
+                            ? "bottom-full mb-1.5 slide-in-from-bottom-1"
+                            : "top-full mt-1.5 slide-in-from-top-1"
+                        )}
+                      >
+                        {getAvailableStatusOptions(task.status).map((opt) => {
+                          const isSelected = task.status === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                handleStatusChange(task.id, opt.value);
+                                setOpenStatusDropdownId(null);
+                              }}
+                              className={cn(
+                                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer my-0.5",
+                                isSelected
+                                  ? "bg-blue-50 text-blue-700 font-bold"
+                                  : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 pr-1">
+                                <span className={cn("w-2 h-2 rounded-full shrink-0", opt.dotColor)} />
+                                <span className="truncate">{opt.label}</span>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions - OWNER only gets Edit & Delete; MEMBER only sees Badge */}
@@ -735,7 +968,7 @@ const TaskProgressCircle: React.FC<{
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteTask(task.id)}
+                          onClick={() => setTaskToDelete(task)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                           title="Delete task"
                         >
@@ -840,29 +1073,59 @@ const TaskProgressCircle: React.FC<{
 
                       {/* Role-based quick status picker inside card */}
                       <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between gap-2">
-                        <select
-                          value={task.status}
-                          onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                          className="text-[10px] font-bold rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 focus:outline-none focus:border-[#535C91] cursor-pointer"
-                        >
-                          {currentRole === 'MEMBER' ? (
-                            <>
-                              <option value="TODO">To Do</option>
-                              <option value="IN_PROGRESS">In Progress</option>
-                              <option value="COMPLETED">Complete</option>
-                              {task.status === 'REVIEW' && <option value="REVIEW" disabled>In Review</option>}
-                              {task.status === 'DONE' && <option value="DONE" disabled>Done</option>}
-                            </>
-                          ) : (
-                            <>
-                              <option value="TODO">To Do</option>
-                              <option value="IN_PROGRESS">In Progress</option>
-                              <option value="COMPLETED">Complete</option>
-                              <option value="REVIEW">In Review</option>
-                              <option value="DONE">Done</option>
-                            </>
+                        <div className="relative flex-1" data-status-dropdown>
+                          <button
+                            type="button"
+                            onClick={() => setOpenStatusDropdownId(openStatusDropdownId === task.id ? null : task.id)}
+                            className={cn(
+                              "w-full inline-flex items-center justify-between gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all text-left cursor-pointer shadow-2xs",
+                              openStatusDropdownId === task.id
+                                ? "border-[#535C91] bg-white ring-1 ring-[#535C91]/20 text-[#070F2B]"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                            )}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", getStatusConfig(task.status).dotColor)} />
+                              <span className="truncate">{getStatusConfig(task.status).label}</span>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "w-3 h-3 text-slate-400 shrink-0 transition-transform duration-200",
+                                openStatusDropdownId === task.id && "rotate-180 text-[#535C91]"
+                              )}
+                            />
+                          </button>
+
+                          {openStatusDropdownId === task.id && (
+                            <div className="absolute z-50 bottom-full left-0 mb-1.5 w-36 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1 animate-in fade-in slide-in-from-bottom-1 duration-150">
+                              {getAvailableStatusOptions(task.status).map((opt) => {
+                                const isSelected = task.status === opt.value;
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                      handleStatusChange(task.id, opt.value);
+                                      setOpenStatusDropdownId(null);
+                                    }}
+                                    className={cn(
+                                      "w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-semibold transition-colors text-left cursor-pointer my-0.5",
+                                      isSelected
+                                        ? "bg-blue-50 text-blue-700 font-bold"
+                                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                                      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", opt.dotColor)} />
+                                      <span className="truncate">{opt.label}</span>
+                                    </div>
+                                    {isSelected && <Check className="w-3 h-3 text-blue-600 shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           )}
-                        </select>
+                        </div>
 
                         {task.dueDate && (
                           <div className="flex items-center gap-1 text-[10px] text-slate-500 shrink-0">
@@ -931,6 +1194,107 @@ const TaskProgressCircle: React.FC<{
           canDelete={true}
         />
       )}
+
+      {/* Delete Confirmation Modal (Centered) */}
+      {taskToDelete &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isDeleting) {
+                setTaskToDelete(null);
+              }
+            }}
+          >
+            <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col my-auto">
+              {/* Header */}
+              <div className="px-6 py-4 bg-[#070F2B] text-white flex items-center justify-between border-b border-[#1B1A55]">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center shrink-0 text-rose-400">
+                    <Trash2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white font-heading">Delete Task</h3>
+                    <p className="text-[11px] text-slate-300">Confirm task deletion</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isDeleting && setTaskToDelete(null)}
+                  disabled={isDeleting}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+                  Are you sure you want to delete this task? This action cannot be undone and will permanently remove it from the workspace.
+                </p>
+
+                {/* Task Details Preview Box */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2">
+                  <div className="text-xs font-bold text-slate-900 line-clamp-2">
+                    {taskToDelete.title}
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+                    {taskToDelete.project?.name && (
+                      <span className="flex items-center gap-1 font-semibold text-slate-700 truncate max-w-[200px]">
+                        <FolderKanban className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="truncate">{taskToDelete.project.name}</span>
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 font-medium text-slate-600">
+                      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", getStatusConfig(taskToDelete.status).dotColor)} />
+                      <span>{getStatusConfig(taskToDelete.status).label}</span>
+                    </span>
+                    {taskToDelete.assignee && (
+                      <span className="flex items-center gap-1 font-medium text-slate-600">
+                        <User className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>{taskToDelete.assignee.firstName} {taskToDelete.assignee.lastName}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setTaskToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition cursor-pointer font-heading"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-white bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-600/20 transition cursor-pointer font-heading flex items-center gap-1.5"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Task</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

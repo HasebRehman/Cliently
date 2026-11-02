@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { renderAsync } from 'docx-preview';
 import { ProjectFile } from '../../types/project.js';
 import { formatDate, cn } from '../../lib/utils.js';
@@ -62,21 +63,40 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
     const loadDocument = async () => {
       try {
-        const response = await fetch(file.fileUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to load document (HTTP ${response.status})`);
-        }
-        const blob = await response.blob();
-
-        if (isCancelled) return;
-
         if (isPdf) {
-          // Create PDF blob URL for reliable browser rendering
-          const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-          const url = URL.createObjectURL(pdfBlob);
-          setBlobUrl(url);
-          setIsLoading(false);
-        } else if (isDocx) {
+          // Attempt to fetch blob for sandboxed preview, fallback to direct url if fetch fails
+          try {
+            const response = await fetch(file.fileUrl);
+            if (response.ok) {
+              const blob = await response.blob();
+              if (!isCancelled) {
+                const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+                const url = URL.createObjectURL(pdfBlob);
+                setBlobUrl(url);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch {
+            // Direct fileUrl fallback for PDF iframe
+          }
+
+          if (!isCancelled) {
+            setBlobUrl(file.fileUrl);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (isDocx) {
+          const response = await fetch(file.fileUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to load document (HTTP ${response.status})`);
+          }
+          const blob = await response.blob();
+
+          if (isCancelled) return;
+
           // Render DOCX into container
           if (docxContainerRef.current && !isCancelled) {
             docxContainerRef.current.innerHTML = '';
@@ -116,32 +136,43 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     };
   }, [isOpen, file?.id, file?.fileUrl]);
 
-  // Handle escape key
+  // Handle escape key and lock body scroll
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen || !file) return null;
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label={file.fileName}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 md:p-8 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         className={cn(
-          'relative flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all duration-300 w-full',
+          'relative flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all duration-300 w-full my-auto',
           isFullscreen
             ? 'h-full max-w-none rounded-none'
-            : 'max-w-5xl h-[90vh] max-h-[920px]'
+            : 'max-w-5xl h-[88vh] max-h-[900px]'
         )}
       >
         {/* Modal Top Navigation / Header */}
@@ -268,4 +299,8 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };

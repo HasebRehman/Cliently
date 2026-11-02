@@ -10,30 +10,31 @@ export const ProjectTeamSection: React.FC<ProjectTeamSectionProps> = ({ project 
   const teamMembers = project.teamMembers || [];
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      <div className="px-6 py-4 bg-[#070F2B] text-white border-b border-[#1B1A55] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0 shadow-2xs">
-            <Users className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 rounded-xl bg-[#1B1A55] border border-[#535C91]/40 flex items-center justify-center text-blue-400 shrink-0 shadow-2xs">
+            <Users className="w-5 h-5 text-[#9290C3]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h3 className="text-base font-bold text-slate-900 font-heading">
+              <h3 className="text-base font-bold text-white font-heading">
                 Assigned Team Members
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#1B1A55] text-blue-200 border border-[#535C91]/50">
                 {teamMembers.length} {teamMembers.length === 1 ? 'Member' : 'Members'}
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Team members allocated to work on and deliver this project.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Member Cards Grid */}
+      <div className="p-6">
+        {/* Member Cards Grid */}
       {teamMembers.length === 0 ? (
         <div className="py-10 text-center bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
           <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-500 mx-auto mb-2.5">
@@ -112,6 +113,7 @@ export const ProjectTeamSection: React.FC<ProjectTeamSectionProps> = ({ project 
           })}
         </div>
       )}
+      </div>
     </div>
   );
 };

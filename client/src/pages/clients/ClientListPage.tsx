@@ -1,4 +1,4 @@
-import React, { useState, useDeferredValue } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/apiClient.js';
 import { Client } from '../../types/client.js';
@@ -24,6 +24,7 @@ import {
   UserCheck,
   Clock,
   Loader2,
+  X,
 } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 
@@ -38,10 +39,19 @@ export const ClientListPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState('');
-  const deferredSearch = useDeferredValue(search);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit] = useState(5);
+
+  // Debounce search by 250ms for live AJAX server query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Modal states
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -54,13 +64,22 @@ export const ClientListPage: React.FC = () => {
     limit: String(limit),
     sortBy: 'createdAt',
     sortOrder: 'desc',
-    ...(deferredSearch ? { search: deferredSearch } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
   });
 
   const { data, isLoading, isFetching, isError, error: fetchError, refetch } = useQuery({
-    queryKey: ['clients', { page, limit, search: deferredSearch, statusFilter }],
+    queryKey: ['clients', { page, limit, search: debouncedSearch, statusFilter }],
     queryFn: () => api.get<{ data: Client[]; pagination: any }>(`/clients?${queryParams.toString()}`),
+    placeholderData: (previousData, previousQuery) => {
+      const prevFilter = (previousQuery?.queryKey?.[1] as any)?.statusFilter;
+      // Isolate status tab switches so they don't bleed previous tab data
+      if (prevFilter !== undefined && prevFilter !== statusFilter) {
+        return undefined;
+      }
+      // Retain data during live typing/searching so the table doesn't collapse into skeleton
+      return previousData;
+    },
   });
 
   const deleteMutation = useMutation({
@@ -109,8 +128,22 @@ export const ClientListPage: React.FC = () => {
     setIsFormModalOpen(true);
   };
 
-  const clients: Client[] = Array.isArray(data) ? data : (data?.data || []);
-  const pagination = (data as any)?.pagination || { total: clients.length, totalPages: 1, page: 1 };
+  const rawClients: Client[] = Array.isArray(data) ? data : (data?.data || []);
+
+  // Instant real-time filtering while user is typing (sub-millisecond instant feedback)
+  const trimmedSearch = search.trim().toLowerCase();
+  const clients = useMemo(() => {
+    if (!trimmedSearch) return rawClients;
+    return rawClients.filter((c) => {
+      const nameMatch = c.name?.toLowerCase().includes(trimmedSearch);
+      const emailMatch = c.email ? c.email.toLowerCase().includes(trimmedSearch) : false;
+      const companyMatch = c.company ? c.company.toLowerCase().includes(trimmedSearch) : false;
+      const phoneMatch = c.phone ? c.phone.includes(trimmedSearch) : false;
+      return Boolean(nameMatch || emailMatch || companyMatch || phoneMatch);
+    });
+  }, [rawClients, trimmedSearch]);
+
+  const pagination = (data as any)?.pagination || { total: clients.length, totalPages: Math.ceil(clients.length / limit) || 1, page: 1 };
 
   return (
     <div className="space-y-6 pb-10">
@@ -156,9 +189,22 @@ export const ClientListPage: React.FC = () => {
             }}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-9 py-2 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#535C91] focus:ring-2 focus:ring-[#535C91]/20 focus:bg-white transition-all font-medium"
           />
-          {isFetching && !isLoading && (
+          {isFetching ? (
             <Loader2 className="w-3.5 h-3.5 text-[#535C91] absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin" />
-          )}
+          ) : search ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setDebouncedSearch('');
+                setPage(1);
+              }}
+              className="w-5 h-5 text-slate-400 hover:text-slate-600 absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200/80 w-full sm:w-auto overflow-x-auto no-scrollbar">
@@ -256,7 +302,20 @@ export const ClientListPage: React.FC = () => {
                                 : 'Add your first client to start creating projects, billing, and collaborating.'}
                             </p>
                           </div>
-                          {statusFilter !== 'ARCHIVED' && currentRole === 'OWNER' && !search && (
+                          {search ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setSearch('');
+                                setDebouncedSearch('');
+                                setPage(1);
+                              }}
+                              className="mt-2 text-xs font-bold cursor-pointer"
+                            >
+                              Clear Search
+                            </Button>
+                          ) : statusFilter !== 'ARCHIVED' && currentRole === 'OWNER' && (
                             <Button
                               variant="secondary"
                               size="sm"
@@ -479,13 +538,15 @@ export const ClientListPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Pagination Component */}
-          {pagination.totalPages > 1 && (
-            <div className="pt-2 flex justify-end">
+          {/* Pagination Component - Rendered only when clients exceed 5 */}
+          {pagination.total > 5 && (
+            <div className="pt-2">
               <Pagination
                 currentPage={page}
                 totalPages={pagination.totalPages}
+                totalItems={pagination.total}
                 onPageChange={(p) => setPage(p)}
+                isLoading={isFetching}
               />
             </div>
           )}

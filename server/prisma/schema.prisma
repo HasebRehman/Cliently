@@ -216,6 +216,7 @@ model Membership {
   organizationId String
   role           Role         @default(MEMBER)
   projectId      String?      // Optional assigned project for MEMBER role
+  projectIds     String[]     @default([])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -238,6 +239,7 @@ model Invite {
   phone          String?
   role           Role         @default(MEMBER)
   projectId      String?      // Optional assigned project for invited member
+  projectIds     String[]     @default([])
   tokenHash      String       @unique
   expiresAt      DateTime
   status         InviteStatus @default(PENDING)

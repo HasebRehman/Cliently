@@ -158,28 +158,28 @@ export const ProjectDetailPage: React.FC = () => {
       </div>
 
       {/* 1. Project Overview Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-5 bg-[#070F2B] text-white border-b border-[#1B1A55] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{project.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight font-heading">{project.name}</h1>
               <ProjectStatusBadge status={project.status} />
               <span
                 className={cn(
                   'px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 border',
                   isMilestone
-                    ? 'bg-purple-50 text-purple-700 border-purple-200'
-                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                    ? 'bg-[#1B1A55] text-purple-300 border-purple-500/30'
+                    : 'bg-[#1B1A55] text-blue-300 border-blue-500/30'
                 )}
               >
                 {isMilestone ? (
                   <>
-                    <Milestone className="w-3.5 h-3.5 text-purple-600" />
+                    <Milestone className="w-3.5 h-3.5 text-purple-400" />
                     Milestone-Based
                   </>
                 ) : (
                   <>
-                    <Zap className="w-3.5 h-3.5 text-blue-600" />
+                    <Zap className="w-3.5 h-3.5 text-blue-400" />
                     One-Time Project
                   </>
                 )}
@@ -187,18 +187,18 @@ export const ProjectDetailPage: React.FC = () => {
             </div>
 
             {project.client && (
-              <p className="text-sm text-slate-500 mt-1.5 flex items-center gap-1.5">
+              <p className="text-sm text-slate-300 mt-2 flex items-center gap-1.5">
                 <Building className="w-4 h-4 text-slate-400" />
                 Client:{' '}
                 {isOwner ? (
                   <Link
                     to={`/clients/${project.client.id}`}
-                    className="text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline font-semibold"
+                    className="text-blue-300 hover:text-white underline-offset-2 hover:underline font-semibold transition-colors"
                   >
                     {project.client.name} {project.client.company ? `(${project.client.company})` : ''}
                   </Link>
                 ) : (
-                  <span className="text-slate-800 font-semibold">
+                  <span className="text-white font-semibold">
                     {project.client.name} {project.client.company ? `(${project.client.company})` : ''}
                   </span>
                 )}
@@ -206,58 +206,60 @@ export const ProjectDetailPage: React.FC = () => {
             )}
           </div>
 
-          <div className="text-xs text-slate-500">
-            Created: <span className="text-slate-900 font-semibold">{formatDate(project.createdAt)}</span>
+          <div className="text-xs text-slate-300">
+            Created: <span className="text-white font-semibold">{formatDate(project.createdAt)}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
-          <div className="space-y-1">
-            <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">
-              Project Model
-            </span>
-            <div className="flex items-center gap-2 text-slate-900 text-sm font-semibold">
-              {isMilestone ? (
-                <>
-                  <Milestone className="w-4 h-4 text-purple-600" />
-                  <span>Milestone Stages</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 text-blue-600" />
-                  <span>Full One-Time Delivery</span>
-                </>
-              )}
+        <div className="p-6 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
+            <div className="space-y-1">
+              <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">
+                Project Model
+              </span>
+              <div className="flex items-center gap-2 text-slate-900 text-sm font-semibold">
+                {isMilestone ? (
+                  <>
+                    <Milestone className="w-4 h-4 text-purple-600" />
+                    <span>Milestone Stages</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 text-blue-600" />
+                    <span>Full One-Time Delivery</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">
+                Project Budget
+              </span>
+              <div className="flex items-center gap-2 text-slate-900 text-sm font-bold">
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                <span>{project.budget ? formatMoney(project.budget, currency) : 'No budget set'}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">
+                Target Deadline
+              </span>
+              <div className="flex items-center gap-2 text-slate-900 text-sm font-semibold">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span>{formatDate(project.deadline) || 'No deadline specified'}</span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">
-              Project Budget
-            </span>
-            <div className="flex items-center gap-2 text-slate-900 text-sm font-bold">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
-              <span>{project.budget ? formatMoney(project.budget, currency) : 'No budget set'}</span>
+          {project.description && (
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+              <span className="font-bold text-slate-700 block mb-1">Scope & Description:</span>
+              <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{project.description}</p>
             </div>
-          </div>
-
-          <div className="space-y-1">
-            <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">
-              Target Deadline
-            </span>
-            <div className="flex items-center gap-2 text-slate-900 text-sm font-semibold">
-              <Calendar className="w-4 h-4 text-blue-600" />
-              <span>{formatDate(project.deadline) || 'No deadline specified'}</span>
-            </div>
-          </div>
+          )}
         </div>
-
-        {project.description && (
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-            <span className="font-bold text-slate-700 block mb-1">Scope & Description:</span>
-            <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{project.description}</p>
-          </div>
-        )}
       </div>
 
       {/* 2. Project Documents & Files (PDF & Word files up to 5) */}
@@ -277,56 +279,63 @@ export const ProjectDetailPage: React.FC = () => {
 
       {/* 7. Invoices Section (Shown for Owner & Client, Hidden for Member) */}
       {!isMember && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
-              <h2 className="text-base font-bold text-slate-900">Invoices Billed to this Project</h2>
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 bg-[#070F2B] text-white border-b border-[#1B1A55] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#1B1A55] border border-[#535C91]/40 flex items-center justify-center text-blue-400 shrink-0 shadow-2xs">
+                <FileText className="w-5 h-5 text-[#9290C3]" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white font-heading">Invoices Billed to this Project</h2>
+                <p className="text-xs text-slate-300 mt-0.5">Financial invoices and payment milestones associated with this project.</p>
+              </div>
             </div>
             {isOwner && (
               <Link to={`/invoices/new?projectId=${project.id}&clientId=${project.clientId}`}>
-                <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+                <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} className="bg-[#535C91] hover:bg-[#434b7a] text-white font-bold shadow-md shadow-[#535C91]/25 cursor-pointer">
                   Create Invoice
                 </Button>
               </Link>
             )}
           </div>
 
-          {invoices.length === 0 ? (
-            <p className="text-xs text-slate-500 py-6 text-center">No invoices issued for this project yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Total Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((inv) => (
-                  <TableRow key={inv.id}>
-                    <TableCell>
-                      <Link
-                        to={`/invoices/${inv.id}`}
-                        className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
-                      >
-                        {inv.number}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <InvoiceStatusBadge status={inv.status} />
-                    </TableCell>
-                    <TableCell className="text-slate-600">{formatDate(inv.dueDate)}</TableCell>
-                    <TableCell className="font-bold text-slate-900">
-                      {formatMoney(inv.total, inv.organization?.currency || currency)}
-                    </TableCell>
+          <div className="p-6">
+            {invoices.length === 0 ? (
+              <p className="text-xs text-slate-500 py-6 text-center">No invoices issued for this project yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Total Amount</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell>
+                        <Link
+                          to={`/invoices/${inv.id}`}
+                          className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          {inv.number}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <InvoiceStatusBadge status={inv.status} />
+                      </TableCell>
+                      <TableCell className="text-slate-600">{formatDate(inv.dueDate)}</TableCell>
+                      <TableCell className="font-bold text-slate-900">
+                        {formatMoney(inv.total, inv.organization?.currency || currency)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
       )}
 

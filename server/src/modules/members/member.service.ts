@@ -41,16 +41,61 @@ export class MemberService {
       orderBy: { createdAt: 'asc' },
     });
 
-    return members.map((m) => ({
-      id: m.id,
-      userId: m.userId,
-      role: m.role,
-      projectId: m.projectId,
-      project: m.project,
-      user: m.user,
-      createdAt: m.createdAt,
-      joinedAt: m.createdAt,
-    }));
+    // Collect all project IDs to batch-fetch full project summaries
+    const allProjectIds = new Set<string>();
+    for (const m of members) {
+      if (m.projectId) allProjectIds.add(m.projectId);
+      const pids: string[] = (m as any).projectIds || [];
+      if (Array.isArray(pids)) {
+        pids.forEach((pid) => allProjectIds.add(pid));
+      }
+    }
+
+    const projectsMap = new Map<string, { id: string; name: string; client?: { id: string; name: string } | null }>();
+    if (allProjectIds.size > 0) {
+      const projs = await prisma.project.findMany({
+        where: {
+          id: { in: Array.from(allProjectIds) },
+          organizationId: ctx.organizationId,
+        },
+        select: {
+          id: true,
+          name: true,
+          client: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+      for (const p of projs) {
+        projectsMap.set(p.id, p);
+      }
+    }
+
+    return members.map((m) => {
+      const pids: string[] = (m as any).projectIds || [];
+      const assignedIds = Array.from(
+        new Set([
+          ...(Array.isArray(pids) ? pids : []),
+          ...(m.projectId ? [m.projectId] : []),
+        ])
+      );
+      const assignedProjects = assignedIds
+        .map((pid) => projectsMap.get(pid))
+        .filter(Boolean) as Array<{ id: string; name: string; client?: { id: string; name: string } | null }>;
+
+      return {
+        id: m.id,
+        userId: m.userId,
+        role: m.role,
+        projectId: m.projectId || assignedIds[0] || null,
+        projectIds: assignedIds,
+        project: m.project || assignedProjects[0] || null,
+        projects: assignedProjects,
+        user: m.user,
+        createdAt: m.createdAt,
+        joinedAt: m.createdAt,
+      };
+    });
   }
 
   /**
@@ -208,8 +253,25 @@ export class MemberService {
       throw new AppError('Member not found in this organization.', 404, 'MEMBER_NOT_FOUND');
     }
 
+    let resolvedProjectIds: string[] | undefined = undefined;
     let resolvedProjectId: string | null | undefined = undefined;
-    if (input.projectId !== undefined) {
+
+    if (input.projectIds !== undefined) {
+      if (Array.isArray(input.projectIds) && input.projectIds.length > 0) {
+        const validProjects = await prisma.project.findMany({
+          where: {
+            id: { in: input.projectIds },
+            organizationId: ctx.organizationId,
+          },
+          select: { id: true },
+        });
+        resolvedProjectIds = validProjects.map((p) => p.id);
+        resolvedProjectId = resolvedProjectIds[0] || null;
+      } else {
+        resolvedProjectIds = [];
+        resolvedProjectId = null;
+      }
+    } else if (input.projectId !== undefined) {
       if (input.projectId && input.projectId.trim() !== '') {
         const proj = await prisma.project.findFirst({
           where: { id: input.projectId, organizationId: ctx.organizationId },
@@ -218,8 +280,10 @@ export class MemberService {
           throw new AppError('Assigned project not found in this organization.', 400, 'PROJECT_NOT_FOUND');
         }
         resolvedProjectId = proj.id;
+        resolvedProjectIds = [proj.id];
       } else {
         resolvedProjectId = null;
+        resolvedProjectIds = [];
       }
     }
 
@@ -235,6 +299,7 @@ export class MemberService {
         where: { id: memberId },
         data: {
           ...(resolvedProjectId !== undefined ? { projectId: resolvedProjectId } : {}),
+          ...(resolvedProjectIds !== undefined ? { projectIds: resolvedProjectIds } : {}),
         },
         include: {
           user: {
@@ -270,6 +335,7 @@ export class MemberService {
             targetUserId: targetMembership.userId,
             phone: input.phone,
             projectId: resolvedProjectId,
+            projectIds: resolvedProjectIds,
           },
         },
       });
@@ -277,12 +343,22 @@ export class MemberService {
       return mem;
     });
 
+    const finalIds: string[] = (updated as any).projectIds || (updated.projectId ? [updated.projectId] : []);
+    const assignedProjects = finalIds.length > 0
+      ? await prisma.project.findMany({
+          where: { id: { in: finalIds }, organizationId: ctx.organizationId },
+          select: { id: true, name: true, client: { select: { id: true, name: true } } },
+        })
+      : [];
+
     return {
       id: updated.id,
       userId: updated.userId,
       role: updated.role,
       projectId: updated.projectId,
-      project: updated.project,
+      projectIds: finalIds,
+      project: updated.project || assignedProjects[0] || null,
+      projects: assignedProjects,
       user: updated.user,
       createdAt: updated.createdAt,
       joinedAt: updated.createdAt,

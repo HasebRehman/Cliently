@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../lib/apiClient.js';
 import { useToast } from '../../contexts/ToastContext.js';
 import { Project } from '../../types/project.js';
@@ -18,6 +19,8 @@ import {
   Bot,
   ArrowRight,
   RotateCcw,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 
@@ -66,6 +69,25 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
     (SuggestedAiTask & { isSelected: boolean })[]
   >([]);
   const [isApproving, setIsApproving] = useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        projectDropdownRef.current &&
+        !projectDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsProjectDropdownOpen(false);
+      }
+    };
+    if (isProjectDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProjectDropdownOpen]);
 
   // Load Projects & Members on Open
   useEffect(() => {
@@ -113,6 +135,16 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
       setSelectedFileIds([]);
     }
   }, [selectedProjectId]);
+
+  // Lock background scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -265,12 +297,20 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
 
   const existingProjectFiles = selectedProject?.files || [];
   const selectedCount = suggestedTasks.filter((t) => t.isSelected).length;
+  const currentProject = selectedProject || projects.find((p) => p.id === selectedProjectId);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+  const modalContent = (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] transition-all duration-200',
+          'relative w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[88vh] transition-all duration-200 my-auto',
           step === 'REVIEW_APPROVAL' ? 'max-w-4xl' : 'max-w-2xl'
         )}
       >
@@ -281,14 +321,9 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-tight font-heading">
-                  AI Task Breakdown & Generator
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-slate-950 uppercase tracking-wide">
-                  Gemini AI
-                </span>
-              </div>
+              <h2 className="text-base font-bold text-white tracking-tight font-heading">
+                AI Task Breakdown & Generator
+              </h2>
               <p className="text-[11px] text-slate-200">
                 {step === 'SELECT_FILES'
                   ? 'Analyze requirement documents & auto-generate structured tasks'
@@ -313,26 +348,78 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
           </div>
         ) : step === 'SELECT_FILES' ? (
           /* ================= PHASE 1: PROJECT & FILE SELECTION ================= */
-          <div className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar">
-            {/* 1. Project Selection */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-heading">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar">
+              {/* 1. Project Selection */}
+            <div ref={projectDropdownRef} className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-heading">
                 Select Project <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <FolderKanban className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#535C91] focus:ring-2 focus:ring-[#535C91]/20 focus:bg-white transition"
+                <button
+                  type="button"
+                  onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3.5 py-2.5 bg-white border rounded-xl text-xs sm:text-sm font-semibold transition-all text-left cursor-pointer",
+                    "focus:outline-none focus:ring-4 focus:ring-[#535C91]/15",
+                    isProjectDropdownOpen
+                      ? "border-[#535C91] ring-4 ring-[#535C91]/15"
+                      : "border-slate-300 hover:border-slate-400"
+                  )}
                 >
-                  <option value="" disabled>Select target project...</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.billingType === 'MILESTONE_BASED' ? 'Milestone' : 'One-Time'})
-                    </option>
-                  ))}
-                </select>
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                      <FolderKanban className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <span className={cn("truncate text-xs sm:text-sm", currentProject ? "text-slate-900 font-semibold" : "text-slate-400 font-normal")}>
+                      {currentProject
+                        ? `${currentProject.name} (${currentProject.billingType === 'MILESTONE_BASED' ? 'Milestone' : 'One-Time'})`
+                        : "Select target project..."}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200",
+                      isProjectDropdownOpen && "rotate-180 text-[#535C91]"
+                    )}
+                  />
+                </button>
+
+                {isProjectDropdownOpen && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5 max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                    {projects.length === 0 ? (
+                      <div className="px-3 py-3 text-center text-xs text-slate-400">
+                        No projects available
+                      </div>
+                    ) : (
+                      projects.map((p) => {
+                        const isSelected = selectedProjectId === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectId(p.id);
+                              setIsProjectDropdownOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer my-0.5",
+                              isSelected
+                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <FolderKanban className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span className="truncate">{p.name} ({p.billingType === 'MILESTONE_BASED' ? 'Milestone' : 'One-Time'})</span>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -472,13 +559,14 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Footer */}
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            {/* Footer pinned to bottom */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition cursor-pointer font-heading"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 transition cursor-pointer font-heading"
               >
                 Cancel
               </button>
@@ -610,7 +698,7 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
                       <select
                         value={task.priority}
                         onChange={(e) => handleUpdateSuggestedTask(index, 'priority', e.target.value as TaskPriority)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#535C91]"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#535C91] cursor-pointer"
                       >
                         <option value="LOW">Low</option>
                         <option value="MEDIUM">Medium</option>
@@ -626,7 +714,7 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
                         type="date"
                         value={task.dueDate || ''}
                         onChange={(e) => handleUpdateSuggestedTask(index, 'dueDate', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#535C91]"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#535C91] cursor-pointer"
                       />
                     </div>
 
@@ -650,7 +738,7 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
                       <select
                         value={task.assigneeId || ''}
                         onChange={(e) => handleUpdateSuggestedTask(index, 'assigneeId', e.target.value || null)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#535C91]"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#535C91] cursor-pointer"
                       >
                         <option value="">Unassigned</option>
                         {members.map((m) => (
@@ -712,4 +800,8 @@ export const AiTaskGeneratorModal: React.FC<AiTaskGeneratorModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };

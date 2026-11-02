@@ -110,12 +110,12 @@ export function getFriendlyErrorMessage(err: unknown): string {
     return 'Invalid email or password.';
   }
 
-  if (status === 403 || errorCode === 'FORBIDDEN' || errorCode === 'TENANT_FORBIDDEN') {
-    return 'You do not have permission to perform this action.';
-  }
-
   if (errorCode === 'PLAN_LIMIT_REACHED') {
     return serverMsg || 'You have reached your current plan limit. Please upgrade your organization plan.';
+  }
+
+  if (status === 403 || errorCode === 'FORBIDDEN' || errorCode === 'TENANT_FORBIDDEN') {
+    return serverMsg || 'You do not have permission to perform this action.';
   }
 
   if (errorCode === 'DUPLICATE_ENTRY') {

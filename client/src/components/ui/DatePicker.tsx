@@ -35,6 +35,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   const parsedValue = value ? new Date(value + 'T00:00:00') : null;
   const today = new Date();
@@ -68,6 +69,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     };
   }, [isOpen]);
 
+  // Smoothly scroll popover into view when opened inside a scroll container
+  useEffect(() => {
+    if (isOpen && popoverRef.current) {
+      const timer = setTimeout(() => {
+        popoverRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   const handleToggleOpen = () => {
     if (disabled) return;
     if (!isOpen) {
@@ -77,12 +88,45 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         setOpenUpward(false);
       } else if (buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        // Popover height is ~330px
-        if (spaceBelow < 340 && rect.top > 320) {
-          setOpenUpward(true);
+
+        // Check if inside a scrollable container (e.g., Modal body)
+        let scrollParent: HTMLElement | null = buttonRef.current.parentElement;
+        while (scrollParent && scrollParent !== document.body) {
+          const style = window.getComputedStyle(scrollParent);
+          if (
+            style.overflowY === 'auto' ||
+            style.overflowY === 'scroll' ||
+            style.overflow === 'auto' ||
+            style.overflow === 'scroll'
+          ) {
+            break;
+          }
+          scrollParent = scrollParent.parentElement;
+        }
+
+        const CALENDAR_HEIGHT = 350;
+
+        if (scrollParent && scrollParent !== document.body) {
+          const parentRect = scrollParent.getBoundingClientRect();
+          const spaceAboveInParent = rect.top - parentRect.top;
+          const spaceBelowInParent = parentRect.bottom - rect.bottom;
+
+          // Inside a scroll container, opening upward when spaceAbove < CALENDAR_HEIGHT
+          // will clip the top (month name, prev/next arrows) behind the top boundary of the container!
+          if (spaceAboveInParent < CALENDAR_HEIGHT) {
+            setOpenUpward(false);
+          } else if (spaceBelowInParent < CALENDAR_HEIGHT && spaceAboveInParent >= CALENDAR_HEIGHT) {
+            setOpenUpward(true);
+          } else {
+            setOpenUpward(false);
+          }
         } else {
-          setOpenUpward(false);
+          const spaceBelow = window.innerHeight - rect.bottom;
+          if (spaceBelow < CALENDAR_HEIGHT && rect.top > CALENDAR_HEIGHT) {
+            setOpenUpward(true);
+          } else {
+            setOpenUpward(false);
+          }
         }
       }
     }
@@ -209,6 +253,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         {/* Custom Calendar Popover */}
         {isOpen && (
           <div
+            ref={popoverRef}
             className={cn(
               'absolute z-[100] w-72 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 animate-in fade-in duration-150 select-none',
               align === 'right' ? 'right-0' : 'left-0',

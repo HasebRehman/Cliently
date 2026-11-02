@@ -4,8 +4,8 @@ import { TenantContext } from '../types/express.js';
 
 export const PLAN_LIMITS = {
   FREE: {
-    maxClients: 3,
-    maxInvoicesPerMonth: 5,
+    maxClients: 100,
+    maxInvoicesPerMonth: 50,
   },
   PRO: {
     maxClients: Infinity,

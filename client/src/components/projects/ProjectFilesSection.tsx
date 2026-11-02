@@ -149,7 +149,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ projec
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
       {/* Hidden File Input */}
       <input
         type="file"
@@ -161,26 +161,26 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ projec
       />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="px-6 py-4 bg-[#070F2B] text-white border-b border-[#1B1A55] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-            <FileText className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-[#1B1A55] border border-[#535C91]/40 flex items-center justify-center text-blue-400 shrink-0 shadow-2xs">
+            <FileText className="w-5 h-5 text-[#9290C3]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-bold text-slate-900">Project Documents & Files</h2>
+              <h2 className="text-base font-bold text-white font-heading">Project Documents & Files</h2>
               <span
                 className={cn(
-                  'px-2 py-0.5 rounded-full text-xs font-semibold',
+                  'px-2.5 py-0.5 rounded-full text-[11px] font-bold border',
                   files.length >= maxFiles
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-slate-100 text-slate-600'
+                    ? 'bg-amber-950/50 text-amber-300 border-amber-500/30'
+                    : 'bg-[#1B1A55] text-blue-200 border-[#535C91]/50'
                 )}
               >
                 {files.length} / {maxFiles} Files
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Attach specifications, contracts, brand briefs, or deliverables in PDF or Word format (Max 5 files).
             </p>
           </div>
@@ -201,12 +201,15 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ projec
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || remainingSlots === 0}
               title={remainingSlots === 0 ? 'Maximum 5 files reached' : 'Upload PDF or Word documents'}
+              className="bg-[#535C91] hover:bg-[#434b7a] text-white font-bold shadow-md shadow-[#535C91]/25 cursor-pointer shrink-0"
             >
               {isUploading ? 'Uploading...' : remainingSlots === 0 ? 'Max Limit Reached' : 'Upload Document'}
             </Button>
           </div>
         )}
       </div>
+
+      <div className="p-6 space-y-6">
 
       {/* Files Grid / Empty State */}
       {files.length === 0 ? (
@@ -337,6 +340,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ projec
           isLoading={deleteFileMutation.isPending}
         />
       )}
+      </div>
     </div>
   );
 };

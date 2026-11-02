@@ -33,6 +33,7 @@ const teamMemberFormSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Valid email is required').toLowerCase().trim(),
   phone: z.string().max(50, 'Phone too long').trim().optional().or(z.literal('')),
   projectId: z.string().optional().or(z.literal('')),
+  projectIds: z.array(z.string()),
 });
 
 type TeamMemberFormData = z.infer<typeof teamMemberFormSchema>;
@@ -40,6 +41,7 @@ type TeamMemberFormData = z.infer<typeof teamMemberFormSchema>;
 const editMemberFormSchema = z.object({
   phone: z.string().max(50, 'Phone too long').trim().optional().or(z.literal('')),
   projectId: z.string().optional().or(z.literal('')),
+  projectIds: z.array(z.string()),
 });
 
 type EditMemberFormData = z.infer<typeof editMemberFormSchema>;
@@ -112,10 +114,11 @@ export const TeamPage: React.FC = () => {
       email: '',
       phone: '',
       projectId: '',
+      projectIds: [],
     },
   });
 
-  const selectedProjectId = watch('projectId');
+  const selectedProjectIds = watch('projectIds') || [];
 
   // Edit Member Form
   const {
@@ -130,17 +133,53 @@ export const TeamPage: React.FC = () => {
     defaultValues: {
       phone: '',
       projectId: '',
+      projectIds: [],
     },
   });
 
-  const editSelectedProjectId = watchEdit('projectId');
+  const editSelectedProjectIds = watchEdit('projectIds') || [];
+
+  // Toggle helpers for multi-select projects
+  const handleToggleProject = (id: string) => {
+    const current = selectedProjectIds || [];
+    const next = current.includes(id)
+      ? current.filter((pid) => pid !== id)
+      : [...current, id];
+    setValue('projectIds', next, { shouldValidate: true });
+    setValue('projectId', next[0] || '', { shouldValidate: true });
+  };
+
+  const handleClearProjects = () => {
+    setValue('projectIds', [], { shouldValidate: true });
+    setValue('projectId', '', { shouldValidate: true });
+  };
+
+  const handleToggleEditProject = (id: string) => {
+    const current = editSelectedProjectIds || [];
+    const next = current.includes(id)
+      ? current.filter((pid) => pid !== id)
+      : [...current, id];
+    setValueEdit('projectIds', next, { shouldValidate: true });
+    setValueEdit('projectId', next[0] || '', { shouldValidate: true });
+  };
+
+  const handleClearEditProjects = () => {
+    setValueEdit('projectIds', [], { shouldValidate: true });
+    setValueEdit('projectId', '', { shouldValidate: true });
+  };
 
   // Open edit modal helper
   const handleOpenEditModal = (member: OrgMember) => {
     setMemberToEdit(member);
+    const initialProjectIds: string[] = (member.projectIds && member.projectIds.length > 0)
+      ? member.projectIds
+      : member.projectId || member.project?.id
+      ? [member.projectId || member.project?.id!]
+      : [];
     resetEdit({
       phone: member.user?.phone || '',
-      projectId: member.projectId || member.project?.id || '',
+      projectId: initialProjectIds[0] || '',
+      projectIds: initialProjectIds,
     });
     setIsEditProjectDropdownOpen(false);
     setIsEditModalOpen(true);
@@ -172,12 +211,13 @@ export const TeamPage: React.FC = () => {
         name: data.name || undefined,
         phone: data.phone || undefined,
         role: 'MEMBER',
-        projectId: data.projectId || undefined,
+        projectId: data.projectIds?.[0] || data.projectId || undefined,
+        projectIds: data.projectIds || [],
       }),
     onSuccess: () => {
       success('Team member invitation sent successfully!');
       setIsInviteModalOpen(false);
-      reset();
+      reset({ name: '', email: '', phone: '', projectId: '', projectIds: [] });
       queryClient.invalidateQueries({ queryKey: ['organization', 'invites'] });
       queryClient.invalidateQueries({ queryKey: ['organization', 'members'] });
     },
@@ -190,7 +230,8 @@ export const TeamPage: React.FC = () => {
     mutationFn: ({ memberId, data }: { memberId: string; data: EditMemberFormData }) =>
       api.patch(`/members/${memberId}`, {
         phone: data.phone !== undefined ? (data.phone.trim() || null) : null,
-        projectId: data.projectId || null,
+        projectId: data.projectIds?.[0] || data.projectId || null,
+        projectIds: data.projectIds || [],
       }),
     onSuccess: () => {
       success('Team member updated successfully!');
@@ -253,9 +294,10 @@ export const TeamPage: React.FC = () => {
   });
 
   const filteredInvites = teamInvites.filter((inv) => {
+    const name = (inv.name || '').toLowerCase();
     const email = (inv.email || '').toLowerCase();
     const query = search.toLowerCase();
-    return !search || email.includes(query);
+    return !search || name.includes(query) || email.includes(query);
   });
 
   const totalMembersPages = Math.ceil(filteredMembers.length / pageSize) || 1;
@@ -286,7 +328,7 @@ export const TeamPage: React.FC = () => {
                 variant="primary"
                 size="md"
                 onClick={() => {
-                  reset({ name: '', email: '', phone: '', projectId: '' });
+                  reset({ name: '', email: '', phone: '', projectId: '', projectIds: [] });
                   setIsInviteModalOpen(true);
                 }}
                 leftIcon={<Plus className="w-4 h-4" />}
@@ -350,7 +392,7 @@ export const TeamPage: React.FC = () => {
             <table className="w-full min-w-[850px] table-fixed text-left border-collapse">
               <thead className="bg-[#070F2B] border-b border-[#1B1A55] sticky top-0 z-10 shadow-xs">
                 <tr className="text-[11px] font-bold text-slate-100 uppercase tracking-wider font-heading">
-                  <th className="w-[36%] px-5 py-4">Invitee Email</th>
+                  <th className="w-[36%] px-5 py-4">Invitee</th>
                   <th className="w-[18%] px-4 py-4">Role</th>
                   <th className="w-[18%] px-4 py-4">Status</th>
                   <th className="w-[16%] px-4 py-4">Expires On</th>
@@ -362,7 +404,13 @@ export const TeamPage: React.FC = () => {
                   Array.from({ length: 3 }).map((_, idx) => (
                     <tr key={`invite-skel-${idx}`} className="animate-pulse">
                       <td className="px-5 py-4">
-                        <div className="h-4 bg-slate-200 rounded w-44" />
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-200 shrink-0" />
+                          <div className="space-y-1.5 flex-1">
+                            <div className="h-3.5 bg-slate-200 rounded w-28" />
+                            <div className="h-2.5 bg-slate-100 rounded w-36" />
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="h-5 bg-slate-100 rounded-full w-20" />
@@ -399,34 +447,52 @@ export const TeamPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedInvites.map((invite) => (
-                    <tr key={invite.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-4 font-bold text-slate-900 truncate">
-                        {invite.email}
-                      </td>
-                      <td className="px-4 py-4">
-                        <RoleBadge role={invite.role} />
-                      </td>
-                      <td className="px-4 py-4">
-                        <PortalStatusBadge status="INVITED" />
-                      </td>
-                      <td className="px-4 py-4 text-slate-600 text-xs">
-                        {formatDate(invite.expiresAt)}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Revoke Invitation"
-                          title="Revoke Invitation"
-                          onClick={() => setInviteToRevoke(invite)}
-                          className="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
+                  paginatedInvites.map((invite) => {
+                    const initials = invite.name
+                      ? invite.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+                      : (invite.email?.[0] || 'U').toUpperCase();
+
+                    return (
+                      <tr key={invite.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1B1A55] to-[#535C91] text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm border border-[#535C91]/30">
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 truncate">
+                                {invite.name || <span className="text-slate-400 italic">No name provided</span>}
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate">
+                                {invite.email}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <RoleBadge role={invite.role} />
+                        </td>
+                        <td className="px-4 py-4">
+                          <PortalStatusBadge status="INVITED" />
+                        </td>
+                        <td className="px-4 py-4 text-slate-600 text-xs">
+                          {formatDate(invite.expiresAt)}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Revoke Invitation"
+                            title="Revoke Invitation"
+                            onClick={() => setInviteToRevoke(invite)}
+                            className="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -520,7 +586,10 @@ export const TeamPage: React.FC = () => {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => setIsInviteModalOpen(true)}
+                            onClick={() => {
+                              reset({ name: '', email: '', phone: '', projectId: '', projectIds: [] });
+                              setIsInviteModalOpen(true);
+                            }}
                             leftIcon={<Plus className="w-4 h-4 text-blue-600" />}
                             className="mt-2 font-bold cursor-pointer"
                           >
@@ -643,11 +712,18 @@ export const TeamPage: React.FC = () => {
               {...register('phone')}
             />
 
-            {/* Custom Project Assignment Dropdown */}
+            {/* Custom Multi-Select Project Assignment Dropdown */}
             <div className="space-y-1.5" ref={projectDropdownRef}>
-              <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase">
-                Assigned Project (Optional)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase">
+                  Assigned Projects (Optional)
+                </label>
+                {selectedProjectIds.length > 0 && (
+                  <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                    {selectedProjectIds.length} {selectedProjectIds.length === 1 ? 'project' : 'projects'} selected
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <button
                   type="button"
@@ -664,15 +740,25 @@ export const TeamPage: React.FC = () => {
                     <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                       <FolderKanban className="w-3.5 h-3.5 text-blue-600" />
                     </div>
-                    <span className={cn("truncate text-sm", selectedProjectId ? "text-slate-900 font-semibold" : "text-slate-400")}>
-                      {projects.find((p) => p.id === selectedProjectId)
-                        ? `${projects.find((p) => p.id === selectedProjectId)?.name}${
-                            projects.find((p) => p.id === selectedProjectId)?.client
-                              ? ` (${projects.find((p) => p.id === selectedProjectId)?.client?.name})`
-                              : ''
-                          }`
-                        : "Select a project (Optional)"}
-                    </span>
+                    {selectedProjectIds.length === 0 ? (
+                      <span className="text-slate-400 text-sm">Select projects (Optional)</span>
+                    ) : selectedProjectIds.length === 1 ? (
+                      <span className="truncate text-sm text-slate-900 font-semibold">
+                        {projects.find((p) => p.id === selectedProjectIds[0])?.name || 'Assigned Project'}
+                        {projects.find((p) => p.id === selectedProjectIds[0])?.client && (
+                          <span className="text-slate-400 font-normal ml-1">
+                            ({projects.find((p) => p.id === selectedProjectIds[0])?.client?.name})
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="truncate text-sm text-slate-900 font-semibold">
+                        {projects.find((p) => p.id === selectedProjectIds[0])?.name}{' '}
+                        <span className="text-blue-600 font-bold">
+                          +{selectedProjectIds.length - 1} more
+                        </span>
+                      </span>
+                    )}
                   </div>
                   <ChevronDown
                     className={cn(
@@ -683,44 +769,61 @@ export const TeamPage: React.FC = () => {
                 </button>
 
                 {isProjectDropdownOpen && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5 max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-2 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="flex items-center justify-between px-2 py-1 mb-1 text-[11px] text-slate-500 border-b border-slate-100 pb-1.5">
+                      <span className="font-semibold uppercase tracking-wider">Select projects (multi-select)</span>
+                      {selectedProjectIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearProjects}
+                          className="text-rose-500 hover:text-rose-700 font-semibold cursor-pointer transition"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => {
-                        setValue('projectId', '', { shouldValidate: true });
-                        setIsProjectDropdownOpen(false);
-                      }}
+                      onClick={handleClearProjects}
                       className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer",
-                        !selectedProjectId
+                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer mb-1",
+                        selectedProjectIds.length === 0
                           ? "bg-blue-50 text-blue-700 font-semibold"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       )}
                     >
-                      <span className="text-slate-500 italic">No project assigned</span>
-                      {!selectedProjectId && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                      <span className="italic">No project assigned</span>
+                      {selectedProjectIds.length === 0 && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                     </button>
 
                     {projects.length > 0 && <div className="h-px bg-slate-100 my-1" />}
 
                     {projects.map((p) => {
-                      const isSelected = selectedProjectId === p.id;
+                      const isSelected = selectedProjectIds.includes(p.id);
                       return (
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => {
-                            setValue('projectId', p.id, { shouldValidate: true });
-                            setIsProjectDropdownOpen(false);
-                          }}
+                          onClick={() => handleToggleProject(p.id)}
                           className={cn(
-                            "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer",
+                            "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer my-0.5",
                             isSelected
-                              ? "bg-blue-50 text-blue-700 font-semibold"
+                              ? "bg-blue-50 text-blue-800 font-semibold border border-blue-200/60"
                               : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                           )}
                         >
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                            <div
+                              className={cn(
+                                "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                isSelected
+                                  ? "bg-blue-600 border-blue-600 text-white"
+                                  : "border-slate-300 bg-white"
+                              )}
+                            >
+                              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
                             <FolderKanban className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                             <span className="truncate">{p.name}</span>
                             {p.client && (
@@ -729,7 +832,6 @@ export const TeamPage: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                         </button>
                       );
                     })}
@@ -815,11 +917,18 @@ export const TeamPage: React.FC = () => {
                 {...registerEdit('phone')}
               />
 
-              {/* Custom Project Assignment Dropdown */}
+              {/* Custom Multi-Select Project Assignment Dropdown */}
               <div className="space-y-1.5" ref={editProjectDropdownRef}>
-                <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase">
-                  Assigned Project
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase">
+                    Assigned Projects
+                  </label>
+                  {editSelectedProjectIds.length > 0 && (
+                    <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                      {editSelectedProjectIds.length} {editSelectedProjectIds.length === 1 ? 'project' : 'projects'} selected
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <button
                     type="button"
@@ -836,15 +945,25 @@ export const TeamPage: React.FC = () => {
                       <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                         <FolderKanban className="w-3.5 h-3.5 text-blue-600" />
                       </div>
-                      <span className={cn("truncate text-sm", editSelectedProjectId ? "text-slate-900 font-semibold" : "text-slate-400")}>
-                        {projects.find((p) => p.id === editSelectedProjectId)
-                          ? `${projects.find((p) => p.id === editSelectedProjectId)?.name}${
-                              projects.find((p) => p.id === editSelectedProjectId)?.client
-                                ? ` (${projects.find((p) => p.id === editSelectedProjectId)?.client?.name})`
-                                : ''
-                            }`
-                          : "No project assigned"}
-                      </span>
+                      {editSelectedProjectIds.length === 0 ? (
+                        <span className="text-slate-400 text-sm">No project assigned</span>
+                      ) : editSelectedProjectIds.length === 1 ? (
+                        <span className="truncate text-sm text-slate-900 font-semibold">
+                          {projects.find((p) => p.id === editSelectedProjectIds[0])?.name || 'Assigned Project'}
+                          {projects.find((p) => p.id === editSelectedProjectIds[0])?.client && (
+                            <span className="text-slate-400 font-normal ml-1">
+                              ({projects.find((p) => p.id === editSelectedProjectIds[0])?.client?.name})
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="truncate text-sm text-slate-900 font-semibold">
+                          {projects.find((p) => p.id === editSelectedProjectIds[0])?.name}{' '}
+                          <span className="text-blue-600 font-bold">
+                            +{editSelectedProjectIds.length - 1} more
+                          </span>
+                        </span>
+                      )}
                     </div>
                     <ChevronDown
                       className={cn(
@@ -855,44 +974,61 @@ export const TeamPage: React.FC = () => {
                   </button>
 
                   {isEditProjectDropdownOpen && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5 max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-2 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="flex items-center justify-between px-2 py-1 mb-1 text-[11px] text-slate-500 border-b border-slate-100 pb-1.5">
+                        <span className="font-semibold uppercase tracking-wider">Select projects (multi-select)</span>
+                        {editSelectedProjectIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleClearEditProjects}
+                            className="text-rose-500 hover:text-rose-700 font-semibold cursor-pointer transition"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+
                       <button
                         type="button"
-                        onClick={() => {
-                          setValueEdit('projectId', '', { shouldValidate: true });
-                          setIsEditProjectDropdownOpen(false);
-                        }}
+                        onClick={handleClearEditProjects}
                         className={cn(
-                          "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer",
-                          !editSelectedProjectId
+                          "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer mb-1",
+                          editSelectedProjectIds.length === 0
                             ? "bg-blue-50 text-blue-700 font-semibold"
                             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                         )}
                       >
-                        <span className="text-slate-500 italic">No project assigned</span>
-                        {!editSelectedProjectId && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                        <span className="italic">No project assigned</span>
+                        {editSelectedProjectIds.length === 0 && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                       </button>
 
                       {projects.length > 0 && <div className="h-px bg-slate-100 my-1" />}
 
                       {projects.map((p) => {
-                        const isSelected = editSelectedProjectId === p.id;
+                        const isSelected = editSelectedProjectIds.includes(p.id);
                         return (
                           <button
                             key={p.id}
                             type="button"
-                            onClick={() => {
-                              setValueEdit('projectId', p.id, { shouldValidate: true });
-                              setIsEditProjectDropdownOpen(false);
-                            }}
+                            onClick={() => handleToggleEditProject(p.id)}
                             className={cn(
-                              "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer",
+                              "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer my-0.5",
                               isSelected
-                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                ? "bg-blue-50 text-blue-800 font-semibold border border-blue-200/60"
                                 : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                             )}
                           >
-                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <div
+                                className={cn(
+                                  "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                  isSelected
+                                    ? "bg-blue-600 border-blue-600 text-white"
+                                    : "border-slate-300 bg-white"
+                                )}
+                              >
+                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              </div>
                               <FolderKanban className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                               <span className="truncate">{p.name}</span>
                               {p.client && (
@@ -901,7 +1037,6 @@ export const TeamPage: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                           </button>
                         );
                       })}

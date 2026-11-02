@@ -10,6 +10,7 @@ export const createInviteSchema = z.object({
     errorMap: () => ({ message: 'Invite role must be MEMBER or CLIENT.' }),
   }),
   projectId: z.string().uuid().optional().or(z.literal('')).nullable(),
+  projectIds: z.array(z.string().uuid()).optional(),
 });
 
 export const acceptInviteSchema = z.object({

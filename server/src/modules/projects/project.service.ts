@@ -168,7 +168,11 @@ export class ProjectService {
         },
       });
 
-      if (!membership || !membership.projectId) {
+      const memberProjectIds = membership?.projectIds?.length
+        ? membership.projectIds
+        : (membership?.projectId ? [membership.projectId] : []);
+
+      if (!membership || memberProjectIds.length === 0) {
         return {
           data: [],
           pagination: {
@@ -180,7 +184,7 @@ export class ProjectService {
         };
       }
 
-      where.id = membership.projectId;
+      where.id = { in: memberProjectIds };
     }
 
     const [total, projects] = await Promise.all([
@@ -341,7 +345,11 @@ export class ProjectService {
         },
       });
 
-      if (!membership || membership.projectId !== project.id) {
+      const memberProjectIds = membership?.projectIds?.length
+        ? membership.projectIds
+        : (membership?.projectId ? [membership.projectId] : []);
+
+      if (!membership || !memberProjectIds.includes(project.id)) {
         throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
       }
     }
@@ -376,6 +384,28 @@ export class ProjectService {
     const filteredInvoices = ctx.role === 'CLIENT'
       ? project.invoices.filter((inv) => inv.status !== 'DRAFT')
       : project.invoices;
+
+    const assignedMembers = await prisma.membership.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        OR: [
+          { projectId: project.id },
+          { projectIds: { has: project.id } },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
 
     return {
       id: project.id,
@@ -413,7 +443,7 @@ export class ProjectService {
         createdAt: m.createdAt,
         updatedAt: m.updatedAt,
       })),
-      teamMembers: (project.memberships || []).map((mb) => ({
+      teamMembers: assignedMembers.map((mb) => ({
         id: mb.id,
         role: mb.role,
         user: mb.user,

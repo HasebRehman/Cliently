@@ -182,28 +182,28 @@ export const ProjectTasksSection: React.FC<ProjectTasksSectionProps> = ({ projec
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="px-6 py-4 bg-[#070F2B] text-white border-b border-[#1B1A55] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
-            <CheckSquare className="w-5 h-5 text-indigo-600" />
+          <div className="w-10 h-10 rounded-xl bg-[#1B1A55] border border-[#535C91]/40 flex items-center justify-center text-blue-400 shrink-0 shadow-2xs">
+            <CheckSquare className="w-5 h-5 text-[#9290C3]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="text-base font-bold text-slate-900 font-heading">
+              <h3 className="text-base font-bold text-white font-heading">
                 Project Tasks & Deliverables
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#1B1A55] text-blue-200 border border-[#535C91]/50">
                 {totalTasks} {totalTasks === 1 ? 'Task' : 'Tasks'}
               </span>
               {totalTasks > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950/50 text-emerald-300 border border-emerald-500/30">
                   {doneTasks}/{totalTasks} Done ({progressPercent}%)
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Actionable tasks, assignments, and deliverables created for this project.
             </p>
           </div>
@@ -215,7 +215,7 @@ export const ProjectTasksSection: React.FC<ProjectTasksSectionProps> = ({ projec
             <button
               type="button"
               onClick={() => setShowAiModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-[#1B1A55] to-[#535C91] text-white font-bold text-xs shadow-sm hover:from-[#070F2B] hover:to-[#1B1A55] transition cursor-pointer font-heading"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#1B1A55] to-[#535C91] hover:from-[#070F2B] hover:to-[#1B1A55] border border-[#535C91]/50 text-white font-bold text-xs shadow-sm transition cursor-pointer font-heading"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               <span>Create with AI</span>
@@ -223,7 +223,7 @@ export const ProjectTasksSection: React.FC<ProjectTasksSectionProps> = ({ projec
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#535C91] text-white font-bold text-xs shadow-sm hover:bg-[#434a78] transition cursor-pointer font-heading"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#535C91] hover:bg-[#434a78] text-white font-bold text-xs shadow-md shadow-[#535C91]/25 transition cursor-pointer font-heading"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Task</span>
@@ -231,6 +231,8 @@ export const ProjectTasksSection: React.FC<ProjectTasksSectionProps> = ({ projec
           </div>
         )}
       </div>
+
+      <div className="p-6 space-y-5">
 
       {/* Progress Bar */}
       {totalTasks > 0 && (
@@ -494,6 +496,7 @@ export const ProjectTasksSection: React.FC<ProjectTasksSectionProps> = ({ projec
           canDelete={true}
         />
       )}
+      </div>
     </div>
   );
 };

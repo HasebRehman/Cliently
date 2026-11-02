@@ -272,28 +272,28 @@ export const ProjectMilestonesSection: React.FC<ProjectMilestonesSectionProps> =
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+      <div className="px-6 py-4 bg-[#070F2B] text-white border-b border-[#1B1A55] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0 shadow-2xs">
-            <MilestoneIcon className="w-5 h-5 text-purple-600" />
+          <div className="w-10 h-10 rounded-xl bg-[#1B1A55] border border-[#535C91]/40 flex items-center justify-center text-blue-400 shrink-0 shadow-2xs">
+            <MilestoneIcon className="w-5 h-5 text-[#9290C3]" />
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h3 className="text-base font-bold text-slate-900 font-heading">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h3 className="text-base font-bold text-white font-heading">
                 Project Milestones
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#1B1A55] text-blue-200 border border-[#535C91]/50">
                 {completedCount} / {milestones.length} Completed ({progressPercent}%)
               </span>
               {approvedCount > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950/50 text-emerald-300 border border-emerald-500/30">
                   {approvedCount} Approved
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Phased deliverables, deadlines, client reviews, revisions, and milestone approvals.
             </p>
           </div>
@@ -302,8 +302,8 @@ export const ProjectMilestonesSection: React.FC<ProjectMilestonesSectionProps> =
         <div className="flex items-center gap-3">
           {!isMember && (
             <div className="text-right hidden sm:block">
-              <span className="text-[11px] text-slate-400 font-medium block">Total Milestone Value</span>
-              <span className="text-sm font-black text-slate-900 font-heading">
+              <span className="text-[11px] text-slate-300 font-medium block">Total Milestone Value</span>
+              <span className="text-sm font-black text-white font-heading">
                 {formatMoney(totalMilestonesBudget, currency)}
               </span>
             </div>
@@ -315,13 +315,15 @@ export const ProjectMilestonesSection: React.FC<ProjectMilestonesSectionProps> =
               size="sm"
               onClick={openAddModal}
               leftIcon={<Plus className="w-4 h-4" />}
-              className="bg-[#535C91] hover:bg-[#434b7a] text-white font-bold shadow-xs cursor-pointer shrink-0"
+              className="bg-[#535C91] hover:bg-[#434b7a] text-white font-bold shadow-md shadow-[#535C91]/25 cursor-pointer shrink-0"
             >
               Add Milestone
             </Button>
           )}
         </div>
       </div>
+
+      <div className="p-6 space-y-6">
 
       {/* Progress Bar */}
       {milestones.length > 0 && (
@@ -788,6 +790,7 @@ export const ProjectMilestonesSection: React.FC<ProjectMilestonesSectionProps> =
         isDestructive={true}
         isLoading={deleteMutation.isPending}
       />
+      </div>
     </div>
   );
 };

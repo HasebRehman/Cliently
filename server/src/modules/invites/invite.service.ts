@@ -38,6 +38,27 @@ export class InviteService {
     const rawToken = generateRandomToken(32);
     const tokenHash = hashToken(rawToken);
 
+    // Validate assigned projects if provided
+    let assignedProjectIds: string[] = [];
+    if (input.projectIds && Array.isArray(input.projectIds) && input.projectIds.length > 0) {
+      const validProjects = await prisma.project.findMany({
+        where: {
+          id: { in: input.projectIds },
+          organizationId: ctx.organizationId,
+        },
+        select: { id: true },
+      });
+      assignedProjectIds = validProjects.map((p) => p.id);
+    } else if (input.projectId && input.projectId.trim() !== '') {
+      const proj = await prisma.project.findFirst({
+        where: { id: input.projectId, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (proj) assignedProjectIds = [proj.id];
+    }
+
+    const primaryProjectId = assignedProjectIds[0] || null;
+
     // 4. Create Invite record (7 days expiry)
     const [invite, org, inviter] = await prisma.$transaction(async (tx) => {
       const createdInvite = await tx.invite.create({
@@ -47,7 +68,8 @@ export class InviteService {
           name: input.name || null,
           phone: input.phone || null,
           role: input.role,
-          projectId: input.projectId || null,
+          projectId: primaryProjectId,
+          projectIds: assignedProjectIds,
           tokenHash,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
           status: InviteStatus.PENDING,
@@ -96,6 +118,7 @@ export class InviteService {
     return {
       id: invite.id,
       email: invite.email,
+      name: invite.name,
       role: invite.role,
       expiresAt: invite.expiresAt,
       status: invite.status,
@@ -116,10 +139,45 @@ export class InviteService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const emailsWithoutName = invites.filter((inv) => !inv.name).map((inv) => inv.email);
+    const clientsWithEmail =
+      emailsWithoutName.length > 0
+        ? await prisma.client.findMany({
+            where: {
+              organizationId: ctx.organizationId,
+              email: { in: emailsWithoutName },
+            },
+            select: { email: true, name: true },
+          })
+        : [];
+
+    const usersWithEmail =
+      emailsWithoutName.length > 0
+        ? await prisma.user.findMany({
+            where: {
+              email: { in: emailsWithoutName },
+            },
+            select: { email: true, firstName: true, lastName: true },
+          })
+        : [];
+
+    const fallbackNameMap = new Map<string, string>();
+    for (const c of clientsWithEmail) {
+      if (c.email && c.name) fallbackNameMap.set(c.email.toLowerCase(), c.name);
+    }
+    for (const u of usersWithEmail) {
+      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+      if (u.email && fullName) fallbackNameMap.set(u.email.toLowerCase(), fullName);
+    }
+
     return invites.map((inv) => ({
       id: inv.id,
       email: inv.email,
+      name: inv.name || fallbackNameMap.get(inv.email.toLowerCase()) || null,
+      phone: inv.phone,
       role: inv.role,
+      projectId: inv.projectId,
+      projectIds: (inv as any).projectIds || (inv.projectId ? [inv.projectId] : []),
       expiresAt: inv.expiresAt,
       status: inv.status,
       createdAt: inv.createdAt,
@@ -308,6 +366,9 @@ export class InviteService {
       }
 
       // 2. Create Membership (upsert in case already added)
+      const inviteProjectIds: string[] = (invite as any).projectIds || (invite.projectId ? [invite.projectId] : []);
+      const primaryProjectId = invite.projectId || inviteProjectIds[0] || null;
+
       await tx.membership.upsert({
         where: {
           userId_organizationId: {
@@ -319,11 +380,13 @@ export class InviteService {
           userId: targetUserId!,
           organizationId: invite.organizationId,
           role: invite.role,
-          projectId: invite.projectId || null,
+          projectId: primaryProjectId,
+          projectIds: inviteProjectIds,
         },
         update: {
           role: invite.role,
-          ...(invite.projectId && { projectId: invite.projectId }),
+          ...(primaryProjectId && { projectId: primaryProjectId }),
+          ...(inviteProjectIds.length > 0 && { projectIds: inviteProjectIds }),
         },
       });
 

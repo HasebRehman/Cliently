@@ -703,6 +703,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     onChange={(val) => setValue('deadline', val, { shouldValidate: true })}
                     error={errors.deadline?.message}
                     placeholder="Select target deadline..."
+                    position="bottom"
                   />
                 </div>
               </div>
@@ -797,6 +798,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     onChange={(val) => setValue('deadline', val, { shouldValidate: true })}
                     error={errors.deadline?.message}
                     placeholder="Select target deadline..."
+                    position="bottom"
                   />
                 </div>
               </div>
@@ -903,6 +905,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     onChange={(val) => setValue('deadline', val, { shouldValidate: true })}
                     error={errors.deadline?.message}
                     placeholder="Select target deadline..."
+                    position="bottom"
                   />
                 </div>
               </>
@@ -1151,6 +1154,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                         value={m.deadline}
                         onChange={(val) => handleUpdateMilestone(idx, 'deadline', val)}
                         placeholder="Select phase deadline..."
+                        position="bottom"
                       />
                     </div>
                     <div>
